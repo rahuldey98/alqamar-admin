@@ -1,221 +1,239 @@
 import {
-  Alert,
-  Box,
-  Button,
-  Checkbox,
-  FormControlLabel,
-  InputAdornment,
-  IconButton,
-  Paper,
-  Stack,
-  TextField,
-  Typography,
+    Alert,
+    Box,
+    Button,
+    Checkbox,
+    FormControlLabel,
+    InputAdornment,
+    IconButton,
+    Stack,
+    TextField,
+    Typography,
 } from '@mui/material'
 import Visibility from '@mui/icons-material/Visibility'
 import VisibilityOff from '@mui/icons-material/VisibilityOff'
-import { useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import {useState} from 'react'
+import {useMutation} from '@tanstack/react-query'
 import axios from 'axios'
-import { useNavigate } from 'react-router-dom'
-import { setAccessToken } from '../utils/auth.ts'
-import { login } from '../api/client.ts'
+import {useNavigate} from 'react-router-dom'
+import {setAccessToken} from '../utils/auth.ts'
+import {login} from '../api/client.ts'
+import {tokens} from '../theme.ts'
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 
 export const LoginPage = () => {
-  const navigate = useNavigate()
-  const [showPassword, setShowPassword] = useState(false)
-  const [phone, setPhone] = useState('')
-  const [password, setPassword] = useState('')
+    const navigate = useNavigate()
+    const [showPassword, setShowPassword] = useState(false)
+    const [phone, setPhone] = useState('')
+    const [password, setPassword] = useState('')
 
-  const loginMutation = useMutation({
-    mutationFn: login,
-    onSuccess: (response) => {
-      setAccessToken(response.accessToken)
-      navigate('/home', { replace: true })
-    },
-  })
-
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-
-    loginMutation.mutate({
-      phone: phone.trim(),
-      password,
+    const loginMutation = useMutation({
+        mutationFn: login,
+        onSuccess: (response) => {
+            setAccessToken(response.accessToken)
+            navigate('/home', {replace: true})
+        },
     })
-  }
 
-  const errorMessage = axios.isAxiosError(loginMutation.error)
-    ? loginMutation.error.response?.data?.message || 'Unable to sign in with these credentials.'
-    : loginMutation.error
-      ? 'Something went wrong. Please try again.'
-      : null
+    const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault()
+        loginMutation.mutate({phone: phone.trim(), password})
+    }
 
-  return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        px: { xs: 2, md: 4 },
-        py: { xs: 3, md: 5 },
-        background:
-          'radial-gradient(circle at top left, rgba(12, 91, 86, 0.16), transparent 30%), linear-gradient(135deg, #f5f7f4 0%, #eef3f1 55%, #e6eeeb 100%)',
-      }}
-    >
-      <Paper
-        elevation={0}
-        sx={{
-          width: '100%',
-          maxWidth: 1080,
-          overflow: 'hidden',
-          borderRadius: 6,
-          border: '1px solid rgba(20, 55, 51, 0.08)',
-          boxShadow: '0 24px 80px rgba(20, 55, 51, 0.12)',
-        }}
-      >
+    const errorMessage = axios.isAxiosError(loginMutation.error)
+        ? loginMutation.error.response?.data?.message || 'Unable to sign in with these credentials.'
+        : loginMutation.error
+            ? 'Something went wrong. Please try again.'
+            : null
+
+    return (
         <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: { xs: '1fr', md: '1.1fr 0.9fr' },
-          }}
+            sx={{
+                display: 'flex',
+                height: '100vh'
+            }}
         >
-          <Box
-            sx={{
-              p: { xs: 4, sm: 5, md: 7 },
-              backgroundColor: '#fcfdfc',
-            }}
-          >
-            <Stack spacing={3}>
-              <Box>
-                <Typography
-                  variant="overline"
-                  sx={{
-                    color: 'primary.main',
-                    letterSpacing: '0.24em',
-                    fontWeight: 700,
-                  }}
-                >
-                  Al Qamar Admin
-                </Typography>
-                <Typography
-                  variant="h3"
-                  sx={{
-                    mt: 1.5,
-                    fontWeight: 700,
-                    color: '#102a27',
-                    fontSize: { xs: '2rem', sm: '2.5rem' },
-                    lineHeight: 1.1,
-                  }}
-                >
-                  Admin portal for your institute
-                </Typography>
-                <Typography
-                  variant="body1"
-                  sx={{
-                    mt: 1.5,
-                    maxWidth: 460,
-                    color: 'text.secondary',
-                  }}
-                >
-                  Sign in to view students, teachers, attendance, and the daily
-                  academic activity that keeps your institute running smoothly.
-                </Typography>
-              </Box>
-            </Stack>
-          </Box>
-
-          <Box
-            sx={{
-              p: { xs: 4, sm: 5, md: 7 },
-              background:
-                'linear-gradient(180deg, rgba(255,255,255,0.88) 0%, rgba(247,250,248,0.98) 100%)',
-            }}
-          >
-            <Box sx={{ maxWidth: 420, mx: 'auto' }}>
-              <Typography variant="h5" sx={{ fontWeight: 700, color: '#102a27' }}>
-                Sign in
-              </Typography>
-              <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
-                Use your admin credentials to continue.
-              </Typography>
-
-              <Stack component="form" spacing={2.5} sx={{ mt: 4 }} onSubmit={handleSubmit}>
-                {errorMessage ? <Alert severity="error">{errorMessage}</Alert> : null}
-
-                <TextField
-                  fullWidth
-                  id="phone-number"
-                  label="Phone number"
-                  placeholder="9876543210"
-                  variant="outlined"
-                  value={phone}
-                  onChange={(event) => setPhone(event.target.value)}
-                  disabled={loginMutation.isPending}
-                />
-                <TextField
-                  fullWidth
-                  id="password"
-                  label="Password"
-                  type={showPassword ? 'text' : 'password'}
-                  variant="outlined"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  disabled={loginMutation.isPending}
-                  slotProps={{
-                    input: {
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton
-                            edge="end"
-                            onClick={() => setShowPassword((visible) => !visible)}
-                            aria-label={showPassword ? 'Hide password' : 'Show password'}
-                          >
-                            {showPassword ? <VisibilityOff /> : <Visibility />}
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    },
-                  }}
-                />
-
-                <Box
-                  sx={{
+            {/* Left panel — branding */}
+            <Box
+                sx={{
+                    flex: 1,
                     display: 'flex',
-                    alignItems: 'center',
+                    flexDirection: 'column',
                     justifyContent: 'space-between',
-                    gap: 2,
-                  }}
-                >
-                  <FormControlLabel
-                    control={<Checkbox defaultChecked size="small" />}
-                    label="Remember me"
-                    sx={{ mr: 0 }}
-                  />
+                    padding: 5,
+                    borderRight: `1px solid ${tokens.divider}`,
+                    background: `
+                        radial-gradient(60% 80% at 30% 20%, rgba(99,102,241,0.18), transparent 70%),
+                        radial-gradient(50% 60% at 80% 80%, rgba(168,85,247,0.14), transparent 60%)
+                    `,
+                    overflow: 'hidden',
+                    '&::before': {
+                        content: '""',
+                        position: 'absolute',
+                        inset: 0,
+                        backgroundImage: `
+                            linear-gradient(rgba(99,102,241,0.05) 1px, transparent 1px),
+                            linear-gradient(90deg, rgba(99,102,241,0.05) 1px, transparent 1px)
+                        `,
+                        backgroundSize: '32px 32px',
+                        pointerEvents: 'none',
+                    },
+                }}
+            >
+                {/* Brand mark */}
+                <Box sx={{display: 'flex', alignItems: 'center', gap: 1.25}}>
+                    <Box
+                        sx={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: 2,
+                            background: `linear-gradient(135deg, ${tokens.indigo} 0%, ${tokens.indigoDark} 100%)`,
+                            display: 'grid',
+                            placeItems: 'center',
+                            flexShrink: 0,
+                            boxShadow: `0 0 0 1px rgba(255,255,255,0.06) inset, 0 8px 20px -8px ${tokens.indigo}`,
+                        }}
+                    >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                            <path
+                                d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"
+                                fill="white"
+                                opacity="0.9"
+                            />
+                        </svg>
+                    </Box>
+                    <Box>
+                        <Typography sx={{
+                            fontSize: '0.84375rem',
+                            fontWeight: 600,
+                            letterSpacing: '-0.005em',
+                            color: tokens.text
+                        }}>
+                            Alqamar Academy
+                        </Typography>
+                        <Typography sx={{
+                            fontSize: '0.6875rem',
+                            color: tokens.textDisabled,
+                            letterSpacing: '0.04em',
+                            textTransform: 'uppercase'
+                        }}>
+                            Admin Portal
+                        </Typography>
+                    </Box>
                 </Box>
 
-                <Button
-                  fullWidth
-                  size="large"
-                  type="submit"
-                  variant="contained"
-                  disabled={loginMutation.isPending || !phone.trim() || !password}
-                  sx={{
-                    mt: 1,
-                    py: 1.5,
-                    borderRadius: 3,
-                    textTransform: 'none',
-                    fontSize: '1rem',
-                    fontWeight: 700,
-                    boxShadow: 'none',
-                  }}
-                >
-                  {loginMutation.isPending ? 'Signing in...' : 'Login'}
-                </Button>
-              </Stack>
+                {/* Quote */}
+                <Box sx={{display: 'flex', mt: 'auto', maxWidth: 460, flexDirection: 'column'}}>
+                    <Typography
+                        sx={{
+                            fontSize: '1.625rem',
+                            fontWeight: 500,
+                            color: tokens.text,
+                        }}
+                    >
+                        Run your institute with{' '}
+                        <Box component="em" sx={{color: tokens.indigoLight, fontStyle: 'normal'}}>
+                            clarity
+                        </Box>{' '}
+                        Track every class, every teacher, every student — in one quiet place.
+                    </Typography>
+                </Box>
             </Box>
-          </Box>
+
+            {/* Right panel — form */}
+            <Box
+                sx={{
+                    flex: 1,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    display: 'flex',
+                    padding: {xs: 3, sm: 5},
+                    background: tokens.bg,
+                }}
+            >
+                <Box sx={{width: '100%', maxWidth: 380}}>
+                    <Typography
+                        variant="h3"
+                        sx={{fontSize: '1.625rem', fontWeight: 600, letterSpacing: '-0.025em', color: tokens.text}}
+                    >
+                        Sign in
+                    </Typography>
+                    <Typography sx={{mt: 0.5, fontSize: '0.875rem', color: tokens.textDisabled}}>
+                        Use your admin credentials to continue.
+                    </Typography>
+
+                    <Stack component="form" spacing={2.5} sx={{mt: 4}} onSubmit={handleSubmit}>
+                        {errorMessage ? <Alert severity="error">{errorMessage}</Alert> : null}
+
+                        <TextField
+                            fullWidth
+                            id="phone-number"
+                            label="Phone number"
+                            placeholder="9876543210"
+                            variant="outlined"
+                            value={phone}
+                            onChange={(event) => setPhone(event.target.value)}
+                            disabled={loginMutation.isPending}
+                        />
+                        <TextField
+                            fullWidth
+                            id="password"
+                            label="Password"
+                            type={showPassword ? 'text' : 'password'}
+                            variant="outlined"
+                            value={password}
+                            onChange={(event) => setPassword(event.target.value)}
+                            disabled={loginMutation.isPending}
+                            slotProps={{
+                                input: {
+                                    endAdornment: (
+                                        <InputAdornment position="end">
+                                            <IconButton
+                                                edge="end"
+                                                onClick={() => setShowPassword((v) => !v)}
+                                                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                                sx={{
+                                                    background: 'transparent',
+                                                    border: 'none',
+                                                    '&:hover': {background: 'transparent'}
+                                                }}
+                                            >
+                                                {showPassword ? <VisibilityOff/> : <Visibility/>}
+                                            </IconButton>
+                                        </InputAdornment>
+                                    ),
+                                },
+                            }}
+                        />
+
+                        <Box sx={{display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
+                            <FormControlLabel
+                                control={<Checkbox
+                                    defaultChecked
+                                    size="small"
+                                />}
+                                label={
+                                    <Typography sx={{fontSize: '0.8125rem', color: tokens.textDisabled}}>Remember
+                                        me</Typography>
+                                }
+                                sx={{mr: 0}}
+                            />
+                        </Box>
+
+                        <Button
+                            fullWidth
+                            size="large"
+                            type="submit"
+                            variant="contained"
+                            disabled={loginMutation.isPending}
+                            sx={{mt: 0.5, textTransform: 'none'}}
+                            endIcon={!loginMutation.isPending ? <ArrowForwardIcon/> : undefined}
+                        >
+                            {loginMutation.isPending ? 'Signing in…' : 'Sign in to dashboard'}
+                        </Button>
+                    </Stack>
+                </Box>
+            </Box>
         </Box>
-      </Paper>
-    </Box>
-  )
+    )
 }

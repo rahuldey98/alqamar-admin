@@ -1,25 +1,9 @@
 import {StrictMode} from 'react'
 import {createRoot} from 'react-dom/client'
-import {CssBaseline, ThemeProvider, createTheme} from '@mui/material'
+import {CssBaseline, ThemeProvider} from '@mui/material'
 import App from './App.tsx'
 import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
-
-const theme = createTheme({
-    palette: {
-        primary: {
-            main: '#0c5b56',
-        },
-        background: {
-            default: '#eef3f1',
-        },
-    },
-    shape: {
-        borderRadius: 18,
-    },
-    typography: {
-        fontFamily: '"Segoe UI", "Helvetica Neue", Arial, sans-serif',
-    },
-})
+import { theme } from './theme.ts'
 
 const queryClient = new QueryClient()
 
