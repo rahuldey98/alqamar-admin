@@ -30,7 +30,7 @@ export const LoginPage = () => {
     const loginMutation = useMutation({
         mutationFn: login,
         onSuccess: (response) => {
-            setAccessToken(response.accessToken)
+            setAccessToken(response.data.accessToken)
             navigate('/home', {replace: true})
         },
     })
