@@ -110,18 +110,7 @@ function Sidebar({ activeId }: { activeId: string }) {
         >
             {/* Brand */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, px: 1, pb: 2.5, mb: 2, borderBottom: `1px solid ${borderSoft}` }}>
-                <Box
-                    sx={{
-                        width: 32, height: 32, borderRadius: 2, flexShrink: 0,
-                        background: `linear-gradient(135deg, ${tokens.indigo} 0%, ${tokens.indigoDark} 100%)`,
-                        display: 'grid', placeItems: 'center',
-                        boxShadow: `0 0 0 1px rgba(255,255,255,0.06) inset, 0 8px 20px -8px ${tokens.indigo}`,
-                    }}
-                >
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                        <path d="M7 1a6 6 0 1 0 0 12A4.5 4.5 0 0 1 7 1z" fill="white" opacity="0.9" />
-                    </svg>
-                </Box>
+                <Box component="img" src="/favicon.png" alt="Alqamar" sx={{ width: 32, height: 32, borderRadius: 2, flexShrink: 0, objectFit: 'cover' }} />
                 <Box sx={{ minWidth: 0 }}>
                     <Typography sx={{ fontSize: '0.84375rem', fontWeight: 600, color: tokens.text, letterSpacing: '-0.005em' }}>Alqamar</Typography>
                     <Typography sx={{ fontSize: '0.6875rem', color: tokens.textDisabled, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Academy</Typography>
