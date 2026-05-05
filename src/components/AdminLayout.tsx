@@ -7,7 +7,7 @@ import MenuOutlinedIcon from '@mui/icons-material/MenuOutlined'
 import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined'
 import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined'
 import { Link, useNavigate } from 'react-router-dom'
-import { clearAccessToken } from '../utils/auth.ts'
+import { clearAuth, getUser } from '../utils/auth.ts'
 import { tokens } from '../theme.ts'
 import { stringToColor, initials } from '../utils/ui.ts'
 import type { ReactNode } from 'react'
@@ -88,13 +88,12 @@ function NavItem({ icon, label, to, active = false }: { icon: ReactNode; label: 
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 
-const ADMIN_NAME = 'Naveed Ali'
-
 function Sidebar({ activeId }: { activeId: string }) {
     const navigate = useNavigate()
+    const adminName = getUser()?.name ?? 'Admin'
 
     const handleLogout = () => {
-        clearAccessToken()
+        clearAuth()
         navigate('/login', { replace: true })
     }
 
@@ -162,12 +161,12 @@ function Sidebar({ activeId }: { activeId: string }) {
 
             {/* User row */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, px: 1.5, py: 1.25, borderRadius: 2, bgcolor: bgElev2, border: `1px solid ${borderSoft}` }}>
-                <Avatar sx={{ width: 24, height: 24, fontSize: '0.625rem', fontWeight: 600, bgcolor: stringToColor(ADMIN_NAME) }}>
-                    {initials(ADMIN_NAME)}
+                <Avatar sx={{ width: 24, height: 24, fontSize: '0.625rem', fontWeight: 600, bgcolor: stringToColor(adminName) }}>
+                    {initials(adminName)}
                 </Avatar>
                 <Box sx={{ minWidth: 0, flex: 1 }}>
                     <Typography sx={{ fontSize: '0.78125rem', fontWeight: 500, color: tokens.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {ADMIN_NAME}
+                        {adminName}
                     </Typography>
                     <Typography sx={{ fontSize: '0.6875rem', color: tokens.textDisabled }}>Administrator</Typography>
                 </Box>
@@ -179,6 +178,7 @@ function Sidebar({ activeId }: { activeId: string }) {
 // ── Topbar ────────────────────────────────────────────────────────────────────
 
 function Topbar({ crumb, title }: { crumb: string; title: string }) {
+    const adminName = getUser()?.name ?? 'Admin'
     return (
         <Box
             component="header"
@@ -218,8 +218,8 @@ function Topbar({ crumb, title }: { crumb: string; title: string }) {
 
             <Divider orientation="vertical" flexItem sx={{ height: 24, alignSelf: 'center', borderColor: borderSoft }} />
 
-            <Avatar sx={{ width: 32, height: 32, fontSize: '0.75rem', fontWeight: 600, bgcolor: stringToColor(ADMIN_NAME), cursor: 'pointer' }}>
-                {initials(ADMIN_NAME)}
+            <Avatar sx={{ width: 32, height: 32, fontSize: '0.75rem', fontWeight: 600, bgcolor: stringToColor(adminName), cursor: 'pointer' }}>
+                {initials(adminName)}
             </Avatar>
         </Box>
     )

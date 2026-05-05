@@ -16,7 +16,7 @@ import {useState} from 'react'
 import {useMutation} from '@tanstack/react-query'
 import axios from 'axios'
 import {useNavigate} from 'react-router-dom'
-import {setAccessToken} from '../utils/auth.ts'
+import {setAccessToken, setUser} from '../utils/auth.ts'
 import {login} from '../api/client.ts'
 import {tokens} from '../theme.ts'
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
@@ -31,6 +31,7 @@ export const LoginPage = () => {
         mutationFn: login,
         onSuccess: (response) => {
             setAccessToken(response.data.accessToken)
+            setUser(response.data.user)
             navigate('/home', {replace: true})
         },
     })
