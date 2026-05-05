@@ -1,6 +1,5 @@
 import axios from 'axios'
-import type { LoginRequest, LoginResponse } from '@rahuldey98/alqamar-models/dist/auth/login'
-import type { ApiSuccessResponse } from '@rahuldey98/alqamar-models/dist/common/api'
+import type { LoginRequest, LoginResponse, ApiSuccessResponse, User, GetStudentResponse, DashboardOverview } from '@rahuldey98/alqamar-models'
 import { getAccessToken } from '../utils/auth.ts'
 
 export const api = axios.create({
@@ -25,13 +24,19 @@ export const login = async ({ phone, password }: LoginRequest) => {
   return data
 }
 
-export interface DashboardOverview {
-  totalStudents: number
-  totalTeachers: number
-  todayTotalClasses: number
-}
-
 export const getDashboardOverview = async (): Promise<DashboardOverview> => {
   const { data } = await api.get<ApiSuccessResponse<DashboardOverview>>('dashboard/overview')
+  return data.data
+}
+
+
+export const getTeachers = async (): Promise<User[]> => {
+  const { data } = await api.get<ApiSuccessResponse<User[]>>('users/teachers')
+  return data.data
+}
+
+
+export const getStudents = async (): Promise<GetStudentResponse[]> => {
+  const { data } = await api.get<ApiSuccessResponse<GetStudentResponse[]>>('users/students')
   return data.data
 }

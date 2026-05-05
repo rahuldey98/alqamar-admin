@@ -2,6 +2,8 @@ import { createTheme } from '@mui/material/styles'
 
 const tokens = {
   bg: '#0a0e1a',
+  bgElev1: '#0f1525',
+  bgElev2: '#161d33',
   border: '#232b44',
   divider: '#1c2440',
 
