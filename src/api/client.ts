@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { LoginRequest, LoginResponse, ApiSuccessResponse, User, GetStudentResponse, DashboardOverview } from '@rahuldey98/alqamar-models'
+import type { LoginRequest, LoginResponse, ApiSuccessResponse, User, GetStudentResponse, DashboardOverview, CreateUserRequest, CreateUserResponse, UpdateUserRequest, UpdateUserResponse } from '@rahuldey98/alqamar-models'
 import { getAccessToken } from '../utils/auth.ts'
 
 export const api = axios.create({
@@ -38,5 +38,15 @@ export const getTeachers = async (): Promise<User[]> => {
 
 export const getStudents = async (): Promise<GetStudentResponse[]> => {
   const { data } = await api.get<ApiSuccessResponse<GetStudentResponse[]>>('users/students')
+  return data.data
+}
+
+export const createUser = async (body: CreateUserRequest): Promise<CreateUserResponse> => {
+  const { data } = await api.post<ApiSuccessResponse<CreateUserResponse>>('users', body)
+  return data.data
+}
+
+export const updateUser = async (id: number, body: UpdateUserRequest): Promise<UpdateUserResponse> => {
+  const { data } = await api.patch<ApiSuccessResponse<UpdateUserResponse>>(`users/${id}`, body)
   return data.data
 }
