@@ -3,7 +3,7 @@ import type { LoginRequest, LoginResponse, ApiSuccessResponse, User, GetStudentR
 import { getAccessToken } from '../utils/auth.ts'
 
 export const api = axios.create({
-  baseURL: '/api',
+  baseURL: import.meta.env.DEV ? '/api' : 'https://api.alqamarquraanacademy.com',
   headers: {
     'Content-type': 'application/json',
   },
