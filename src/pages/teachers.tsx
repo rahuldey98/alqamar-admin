@@ -27,6 +27,7 @@ import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import MoreHorizOutlinedIcon from '@mui/icons-material/MoreHorizOutlined'
 import BlockOutlinedIcon from '@mui/icons-material/BlockOutlined'
+import CheckCircleOutlineOutlinedIcon from '@mui/icons-material/CheckCircleOutlineOutlined'
 import VideoCallOutlinedIcon from '@mui/icons-material/VideoCallOutlined'
 import CheckOutlinedIcon from '@mui/icons-material/CheckOutlined'
 import { useEffect, useState } from 'react'
@@ -448,8 +449,10 @@ function RowMenu({ teacher, onEdit }: { teacher: Teacher; onEdit: () => void }) 
     const queryClient = useQueryClient()
     const [anchor, setAnchor] = useState<null | HTMLElement>(null)
 
-    const deactivateMutation = useMutation({
-        mutationFn: () => updateUser(teacher.id, { status: 'INACTIVE' }),
+    const isActive = teacher.status === 'ACTIVE'
+
+    const statusMutation = useMutation({
+        mutationFn: () => updateUser(teacher.id, { status: isActive ? 'INACTIVE' : 'ACTIVE' }),
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['teachers'] }),
         onSettled: () => setAnchor(null),
     })
@@ -495,17 +498,24 @@ function RowMenu({ teacher, onEdit }: { teacher: Teacher; onEdit: () => void }) 
                     <ListItemText>Edit</ListItemText>
                 </MenuItem>
                 <MenuItem
-                    onClick={() => deactivateMutation.mutate()}
-                    disabled={teacher.status === 'INACTIVE' || deactivateMutation.isPending}
-                    sx={{ fontSize: '0.8125rem', color: tokens.red, gap: 1, '&:hover': { bgcolor: alpha(tokens.red, 0.08) }, '&.Mui-disabled': { opacity: 0.4 } }}
+                    onClick={() => statusMutation.mutate()}
+                    disabled={statusMutation.isPending}
+                    sx={{
+                        fontSize: '0.8125rem', gap: 1,
+                        color: isActive ? tokens.red : tokens.green,
+                        '&:hover': { bgcolor: isActive ? alpha(tokens.red, 0.08) : alpha(tokens.green, 0.08) },
+                        '&.Mui-disabled': { opacity: 0.4 },
+                    }}
                 >
                     <ListItemIcon sx={{ minWidth: 'unset' }}>
-                        {deactivateMutation.isPending
-                            ? <CircularProgress size={13} sx={{ color: tokens.red }} />
-                            : <BlockOutlinedIcon sx={{ fontSize: 15, color: tokens.red }} />
+                        {statusMutation.isPending
+                            ? <CircularProgress size={13} sx={{ color: isActive ? tokens.red : tokens.green }} />
+                            : isActive
+                                ? <BlockOutlinedIcon sx={{ fontSize: 15, color: tokens.red }} />
+                                : <CheckCircleOutlineOutlinedIcon sx={{ fontSize: 15, color: tokens.green }} />
                         }
                     </ListItemIcon>
-                    <ListItemText>{teacher.status === 'INACTIVE' ? 'Already inactive' : 'Deactivate'}</ListItemText>
+                    <ListItemText>{isActive ? 'Deactivate' : 'Activate'}</ListItemText>
                 </MenuItem>
             </Menu>
         </>
