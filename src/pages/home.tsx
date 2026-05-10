@@ -2,6 +2,7 @@ import { alpha, Box, Skeleton, Typography } from '@mui/material'
 import PeopleOutlinedIcon from '@mui/icons-material/PeopleOutlined'
 import WorkOutlinedIcon from '@mui/icons-material/WorkOutlined'
 import EventOutlinedIcon from '@mui/icons-material/EventOutlined'
+import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { getDashboardOverview } from '../api/client.ts'
 import { AdminLayout } from '../components/AdminLayout.tsx'
@@ -15,11 +16,19 @@ interface StatCardProps {
     value: string
     color: string
     icon: ReactNode
+    to?: string
 }
 
-function StatCard({ label, value, color, icon }: StatCardProps) {
+function StatCard({ label, value, color, icon, to }: StatCardProps) {
+    const navigate = useNavigate()
     return (
-        <Box sx={{ bgcolor: tokens.bgElev1, border: `1px solid ${tokens.divider}`, borderRadius: '10px', p: '18px 20px' }}>
+        <Box
+            onClick={to ? () => navigate(to) : undefined}
+            sx={{
+                bgcolor: tokens.bgElev1, border: `1px solid ${tokens.divider}`, borderRadius: '10px', p: '18px 20px',
+                ...(to && { cursor: 'pointer', '&:hover': { borderColor: alpha(color, 0.4), bgcolor: alpha(color, 0.03) }, transition: 'border-color 0.15s, background 0.15s' }),
+            }}
+        >
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: '14px' }}>
                 <Typography sx={{ fontSize: '0.75rem', color: tokens.textDisabled, letterSpacing: '0.01em' }}>
                     {label}
@@ -38,8 +47,8 @@ function StatCard({ label, value, color, icon }: StatCardProps) {
 // ── Stat config ───────────────────────────────────────────────────────────────
 
 const STAT_CONFIG = [
-    { key: 'totalStudents' as const, label: 'Total students', color: tokens.indigo, icon: <PeopleOutlinedIcon sx={{ fontSize: 15 }} /> },
-    { key: 'totalTeachers' as const, label: 'Total teachers', color: tokens.cyan, icon: <WorkOutlinedIcon sx={{ fontSize: 15 }} /> },
+    { key: 'totalStudents' as const, label: 'Total students', color: tokens.indigo, icon: <PeopleOutlinedIcon sx={{ fontSize: 15 }} />, to: '/students' },
+    { key: 'totalTeachers' as const, label: 'Total teachers', color: tokens.cyan, icon: <WorkOutlinedIcon sx={{ fontSize: 15 }} />, to: '/teachers' },
     { key: 'todayTotalClasses' as const, label: 'Classes today', color: tokens.green, icon: <EventOutlinedIcon sx={{ fontSize: 15 }} /> },
 ]
 
@@ -54,11 +63,11 @@ export const HomePage = () => {
     return (
         <AdminLayout activeNav="dashboard" crumb="Overview" title="Dashboard">
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2, '@media (max-width: 1100px)': { gridTemplateColumns: 'repeat(2, 1fr)' } }}>
-                {STAT_CONFIG.map(({ key, label, color, icon }) =>
+                {STAT_CONFIG.map(({ key, label, color, icon, to }) =>
                     isLoading ? (
                         <Skeleton key={key} variant="rounded" height={112} sx={{ borderRadius: '10px', bgcolor: alpha(tokens.text, 0.06) }} />
                     ) : (
-                        <StatCard key={key} label={label} value={String(data?.[key] ?? '—')} color={color} icon={icon} />
+                        <StatCard key={key} label={label} value={String(data?.[key] ?? '—')} color={color} icon={icon} to={to} />
                     )
                 )}
             </Box>
