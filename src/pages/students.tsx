@@ -164,12 +164,14 @@ function StudentDrawer({ open, onClose, student }: StudentDrawerProps) {
         setName(''); setPhone(''); setEmail(''); setFeesDate(todayISO()); setCourseId(''); setPhoneTouched(false)
     }
 
+    const toDateTime = (d: string) => d ? new Date(d).toISOString() : undefined
+
     const buildBody = () => ({
         name: name.trim(),
         phone: phone.trim(),
         role: 'STUDENT' as const,
         ...(email.trim() ? { email: email.trim() } : {}),
-        ...(feesDate ? { feesDate } : {}),
+        ...(feesDate ? { feesDate: toDateTime(feesDate) } : {}),
         ...(courseId !== '' ? { courseId: courseId as number } : {}),
     })
 
@@ -187,7 +189,7 @@ function StudentDrawer({ open, onClose, student }: StudentDrawerProps) {
             name: name.trim(),
             phone: phone.trim(),
             ...(email.trim() ? { email: email.trim() } : {}),
-            ...(feesDate ? { feesDate } : {}),
+            ...(feesDate ? { feesDate: toDateTime(feesDate) } : {}),
             ...(courseId !== '' ? { courseId: courseId as number } : {}),
         }),
         onSuccess: () => {
