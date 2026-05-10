@@ -109,21 +109,25 @@ interface TeacherDrawerProps {
     teacher?: Teacher
 }
 
+const isValidPhone = (p: string) => /^[0-9]{10}$/.test(p.trim())
+
 function TeacherDrawer({ open, onClose, teacher }: TeacherDrawerProps) {
     const isEdit = !!teacher
     const queryClient = useQueryClient()
     const [name, setName] = useState(teacher?.name ?? '')
     const [phone, setPhone] = useState(teacher?.phone ?? '')
     const [email, setEmail] = useState(teacher?.email ?? '')
+    const [phoneTouched, setPhoneTouched] = useState(false)
     const [addAnother, setAddAnother] = useState(false)
 
     useEffect(() => {
         setName(teacher?.name ?? '')
         setPhone(teacher?.phone ?? '')
         setEmail(teacher?.email ?? '')
+        setPhoneTouched(false)
     }, [teacher])
 
-    const resetForm = () => { setName(''); setPhone(''); setEmail('') }
+    const resetForm = () => { setName(''); setPhone(''); setEmail(''); setPhoneTouched(false) }
 
     const createMutation = useMutation({
         mutationFn: () => createUser({ name: name.trim(), phone: phone.trim(), role: 'TEACHER', ...(email.trim() ? { email: email.trim() } : {}) }),
@@ -143,7 +147,8 @@ function TeacherDrawer({ open, onClose, teacher }: TeacherDrawerProps) {
     })
 
     const mutation = isEdit ? editMutation : createMutation
-    const canSave = name.trim().length > 1 && phone.trim().length > 5
+    const phoneError = phoneTouched && !isValidPhone(phone)
+    const canSave = name.trim().length > 1 && isValidPhone(phone)
 
     const handleClose = () => {
         if (mutation.isPending) return
@@ -219,10 +224,13 @@ function TeacherDrawer({ open, onClose, teacher }: TeacherDrawerProps) {
                         required
                         fullWidth
                         value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
+                        onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                        onBlur={() => setPhoneTouched(true)}
                         placeholder="9876543210"
                         disabled={mutation.isPending}
-                        slotProps={{ input: { sx: { fontFamily: '"JetBrains Mono", monospace', fontSize: '0.875rem' } } }}
+                        error={phoneError}
+                        helperText={phoneError ? 'Must be 10 digits' : undefined}
+                        slotProps={{ input: { inputMode: 'numeric', sx: { fontFamily: '"JetBrains Mono", monospace', fontSize: '0.875rem' } } }}
                     />
                     <TextField
                         label="Email"

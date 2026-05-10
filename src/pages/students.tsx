@@ -126,6 +126,9 @@ function EnrolledCourse({ student }: { student: Student }) {
 
 // ── Student drawer ────────────────────────────────────────────────────────────
 
+const isValidPhone = (p: string) => /^[0-9]{10}$/.test(p.trim())
+const todayISO = () => new Date().toISOString().split('T')[0]
+
 interface StudentDrawerProps {
     open: boolean
     onClose: () => void
@@ -138,8 +141,9 @@ function StudentDrawer({ open, onClose, student }: StudentDrawerProps) {
     const [name, setName] = useState(student?.name ?? '')
     const [phone, setPhone] = useState(student?.phone ?? '')
     const [email, setEmail] = useState(student?.email ?? '')
-    const [feesDate, setFeesDate] = useState(student?.feesDate ?? '')
+    const [feesDate, setFeesDate] = useState(student?.feesDate ?? todayISO())
     const [courseId, setCourseId] = useState<number | ''>(student?.courseId ?? '')
+    const [phoneTouched, setPhoneTouched] = useState(false)
     const [addAnother, setAddAnother] = useState(false)
 
     const { data: courses = [], isLoading: coursesLoading } = useQuery({
@@ -151,12 +155,13 @@ function StudentDrawer({ open, onClose, student }: StudentDrawerProps) {
         setName(student?.name ?? '')
         setPhone(student?.phone ?? '')
         setEmail(student?.email ?? '')
-        setFeesDate(student?.feesDate ?? '')
+        setFeesDate(student?.feesDate ?? todayISO())
         setCourseId(student?.courseId ?? '')
+        setPhoneTouched(false)
     }, [student])
 
     const resetForm = () => {
-        setName(''); setPhone(''); setEmail(''); setFeesDate(''); setCourseId('')
+        setName(''); setPhone(''); setEmail(''); setFeesDate(todayISO()); setCourseId(''); setPhoneTouched(false)
     }
 
     const buildBody = () => ({
@@ -192,7 +197,8 @@ function StudentDrawer({ open, onClose, student }: StudentDrawerProps) {
     })
 
     const mutation = isEdit ? editMutation : createMutation
-    const canSave = name.trim().length > 1 && phone.trim().length > 5
+    const phoneError = phoneTouched && !isValidPhone(phone)
+    const canSave = name.trim().length > 1 && isValidPhone(phone)
 
     const handleClose = () => {
         if (mutation.isPending) return
@@ -268,10 +274,13 @@ function StudentDrawer({ open, onClose, student }: StudentDrawerProps) {
                         required
                         fullWidth
                         value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
+                        onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                        onBlur={() => setPhoneTouched(true)}
                         placeholder="9876543210"
                         disabled={mutation.isPending}
-                        slotProps={{ input: { sx: { fontFamily: '"JetBrains Mono", monospace', fontSize: '0.875rem' } } }}
+                        error={phoneError}
+                        helperText={phoneError ? 'Must be 10 digits' : undefined}
+                        slotProps={{ input: { inputMode: 'numeric', sx: { fontFamily: '"JetBrains Mono", monospace', fontSize: '0.875rem' } } }}
                     />
                     <TextField
                         label="Email"
@@ -295,8 +304,9 @@ function StudentDrawer({ open, onClose, student }: StudentDrawerProps) {
                             slotProps={{ inputLabel: { shrink: true } }}
                         />
                         <FormControl fullWidth disabled={mutation.isPending || coursesLoading}>
-                            <InputLabel>Course</InputLabel>
+                            <InputLabel shrink>Course</InputLabel>
                             <Select
+                                notched
                                 label="Course"
                                 value={courseId}
                                 onChange={(e) => setCourseId(e.target.value as number | '')}
