@@ -3,25 +3,44 @@ import {
     Avatar,
     Box,
     Chip,
+    CircularProgress,
+    Divider,
+    Drawer,
+    FormControl,
+    IconButton,
     InputBase,
+    InputLabel,
+    ListItemIcon,
+    ListItemText,
+    Menu,
+    MenuItem,
+    Select,
     Skeleton,
     Table,
     TableBody,
     TableCell,
     TableHead,
     TableRow,
+    TextField,
     Typography,
 } from '@mui/material'
 import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined'
 import AddOutlinedIcon from '@mui/icons-material/AddOutlined'
+import BlockOutlinedIcon from '@mui/icons-material/BlockOutlined'
+import CheckCircleOutlineOutlinedIcon from '@mui/icons-material/CheckCircleOutlineOutlined'
+import CheckOutlinedIcon from '@mui/icons-material/CheckOutlined'
+import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined'
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import MoreHorizOutlinedIcon from '@mui/icons-material/MoreHorizOutlined'
-import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { getStudents } from '../api/client.ts'
+import { useEffect, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { createUser, getCourses, getStudents, updateUser } from '../api/client.ts'
 import { AdminLayout } from '../components/AdminLayout.tsx'
 import { tokens } from '../theme.ts'
 import { stringToColor, initials } from '../utils/ui.ts'
-import type { GetStudentResponse as Student } from "@rahuldey98/alqamar-models/dist/api/users/get-student"
+import type { GetStudentResponse, Course } from "@rahuldey98/alqamar-models"
+
+type Student = GetStudentResponse & { course?: Course }
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 
@@ -86,40 +105,366 @@ function RowSkeleton() {
     )
 }
 
-// ── Enrolled courses cell ─────────────────────────────────────────────────────
+// ── Enrolled course cell ──────────────────────────────────────────────────────
 
-function EnrolledCourses({ student }: { student: Student }) {
-    const courses = student.enrollments.map((e) => e.class.course.title)
-    const unique = [...new Set(courses)]
+function EnrolledCourse({ student }: { student: Student }) {
+    const title = student.course?.title
+    if (!title) return <Typography sx={{ fontSize: '0.78125rem', color: tokens.textDisabled }}>—</Typography>
+    return (
+        <Box sx={{
+            display: 'inline-flex', alignItems: 'center',
+            px: '7px', py: '2px', borderRadius: '999px',
+            fontSize: '0.6875rem', fontWeight: 500,
+            bgcolor: alpha(tokens.indigo, 0.1),
+            color: tokens.indigoLight,
+            border: `1px solid ${alpha(tokens.indigo, 0.22)}`,
+        }}>
+            {title}
+        </Box>
+    )
+}
 
-    if (unique.length === 0) {
-        return <Typography sx={{ fontSize: '0.78125rem', color: tokens.textDisabled }}>—</Typography>
+// ── Student drawer ────────────────────────────────────────────────────────────
+
+interface StudentDrawerProps {
+    open: boolean
+    onClose: () => void
+    student?: Student
+}
+
+function StudentDrawer({ open, onClose, student }: StudentDrawerProps) {
+    const isEdit = !!student
+    const queryClient = useQueryClient()
+    const [name, setName] = useState(student?.name ?? '')
+    const [phone, setPhone] = useState(student?.phone ?? '')
+    const [email, setEmail] = useState(student?.email ?? '')
+    const [feesDate, setFeesDate] = useState(student?.feesDate ?? '')
+    const [courseId, setCourseId] = useState<number | ''>(student?.courseId ?? '')
+    const [addAnother, setAddAnother] = useState(false)
+
+    const { data: courses = [], isLoading: coursesLoading } = useQuery({
+        queryKey: ['courses'],
+        queryFn: getCourses,
+    })
+
+    useEffect(() => {
+        setName(student?.name ?? '')
+        setPhone(student?.phone ?? '')
+        setEmail(student?.email ?? '')
+        setFeesDate(student?.feesDate ?? '')
+        setCourseId(student?.courseId ?? '')
+    }, [student])
+
+    const resetForm = () => {
+        setName(''); setPhone(''); setEmail(''); setFeesDate(''); setCourseId('')
     }
 
+    const buildBody = () => ({
+        name: name.trim(),
+        phone: phone.trim(),
+        role: 'STUDENT' as const,
+        ...(email.trim() ? { email: email.trim() } : {}),
+        ...(feesDate ? { feesDate } : {}),
+        ...(courseId !== '' ? { courseId: courseId as number } : {}),
+    })
+
+    const createMutation = useMutation({
+        mutationFn: () => createUser(buildBody()),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['students'] })
+            if (addAnother) { resetForm(); createMutation.reset() }
+            else { resetForm(); onClose() }
+        },
+    })
+
+    const editMutation = useMutation({
+        mutationFn: () => updateUser(student!.id, {
+            name: name.trim(),
+            phone: phone.trim(),
+            ...(email.trim() ? { email: email.trim() } : {}),
+            ...(feesDate ? { feesDate } : {}),
+            ...(courseId !== '' ? { courseId: courseId as number } : {}),
+        }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['students'] })
+            onClose()
+        },
+    })
+
+    const mutation = isEdit ? editMutation : createMutation
+    const canSave = name.trim().length > 1 && phone.trim().length > 5
+
+    const handleClose = () => {
+        if (mutation.isPending) return
+        resetForm(); mutation.reset(); onClose()
+    }
+
+    const handleSave = (another: boolean) => {
+        setAddAnother(another)
+        mutation.mutate()
+    }
+
+    const previewName = name.trim() || (isEdit ? student.name : 'New Student')
+
     return (
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-            {unique.map((title) => (
+        <Drawer
+            anchor="right"
+            open={open}
+            onClose={handleClose}
+            slotProps={{
+                paper: {
+                    sx: {
+                        width: 480, maxWidth: '92vw',
+                        bgcolor: tokens.bgElev1,
+                        borderLeft: `1px solid ${tokens.divider}`,
+                        boxShadow: '-24px 0 48px -12px rgba(0,0,0,0.5)',
+                        display: 'flex', flexDirection: 'column',
+                    },
+                },
+            }}
+        >
+            {/* Header */}
+            <Box sx={{ px: '22px', pt: '18px', pb: '16px', borderBottom: `1px solid ${tokens.divider}`, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1.5 }}>
+                <Box>
+                    <Typography sx={{ fontSize: '1rem', fontWeight: 600, letterSpacing: '-0.01em', color: tokens.text, mb: '3px' }}>
+                        {isEdit ? 'Edit student' : 'Add student'}
+                    </Typography>
+                    <Typography sx={{ fontSize: '0.78125rem', color: tokens.textDisabled }}>
+                        {isEdit ? `Editing profile for ${student.name}` : 'Quick add — full profile editable later.'}
+                    </Typography>
+                </Box>
+                <IconButton onClick={handleClose} size="small" sx={{ color: tokens.textSecondary, '&:hover': { bgcolor: tokens.bgElev2, color: tokens.text } }}>
+                    <CloseOutlinedIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+            </Box>
+
+            {/* Body */}
+            <Box sx={{ flex: 1, overflowY: 'auto', px: '22px', py: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                {/* Avatar preview */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: '14px', pb: '16px', borderBottom: `1px solid ${tokens.divider}` }}>
+                    <Avatar sx={{ width: 48, height: 48, fontSize: '1rem', fontWeight: 600, bgcolor: stringToColor(previewName) }}>
+                        {initials(previewName)}
+                    </Avatar>
+                    <Box>
+                        <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: tokens.text }}>{previewName}</Typography>
+                        <Typography sx={{ fontSize: '0.75rem', color: tokens.textDisabled }}>Student</Typography>
+                    </Box>
+                </Box>
+
+                {/* Fields */}
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <TextField
+                        label="Full name"
+                        required
+                        fullWidth
+                        autoFocus
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="e.g. Aarav Sharma"
+                        disabled={mutation.isPending}
+                    />
+                    <TextField
+                        label="Phone"
+                        required
+                        fullWidth
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="9876543210"
+                        disabled={mutation.isPending}
+                        slotProps={{ input: { sx: { fontFamily: '"JetBrains Mono", monospace', fontSize: '0.875rem' } } }}
+                    />
+                    <TextField
+                        label="Email"
+                        fullWidth
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="name@example.com"
+                        helperText="Optional"
+                        disabled={mutation.isPending}
+                    />
+                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                        <TextField
+                            label="Fees date"
+                            fullWidth
+                            type="date"
+                            value={feesDate}
+                            onChange={(e) => setFeesDate(e.target.value)}
+                            helperText="Optional"
+                            disabled={mutation.isPending}
+                            slotProps={{ inputLabel: { shrink: true } }}
+                        />
+                        <FormControl fullWidth disabled={mutation.isPending || coursesLoading}>
+                            <InputLabel>Course</InputLabel>
+                            <Select
+                                label="Course"
+                                value={courseId}
+                                onChange={(e) => setCourseId(e.target.value as number | '')}
+                                displayEmpty
+                            >
+                                <MenuItem value=""><em style={{ color: tokens.textDisabled }}>None</em></MenuItem>
+                                {courses.map((c) => (
+                                    <MenuItem key={c.id} value={c.id}>
+                                        {c.title}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                    </Box>
+                </Box>
+
+                {mutation.isError && (
+                    <Box sx={{ px: '12px', py: '10px', borderRadius: '8px', bgcolor: alpha(tokens.red, 0.08), border: `1px solid ${alpha(tokens.red, 0.2)}` }}>
+                        <Typography sx={{ fontSize: '0.78125rem', color: tokens.red }}>
+                            {isEdit ? 'Failed to update student.' : 'Failed to create student.'} Please try again.
+                        </Typography>
+                    </Box>
+                )}
+            </Box>
+
+            <Divider sx={{ borderColor: tokens.divider }} />
+
+            {/* Footer */}
+            <Box sx={{ px: '22px', py: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
                 <Box
-                    key={title}
+                    component="button"
+                    onClick={handleClose}
+                    disabled={mutation.isPending}
                     sx={{
-                        display: 'inline-flex', alignItems: 'center',
-                        px: '7px', py: '2px', borderRadius: '999px',
-                        fontSize: '0.6875rem', fontWeight: 500,
-                        bgcolor: alpha(tokens.indigo, 0.1),
-                        color: tokens.indigoLight,
-                        border: `1px solid ${alpha(tokens.indigo, 0.22)}`,
+                        px: '14px', py: '8px', borderRadius: '8px', border: `1px solid ${tokens.divider}`,
+                        bgcolor: 'transparent', color: tokens.textSecondary, fontSize: '0.8125rem', fontWeight: 500,
+                        cursor: 'pointer', '&:hover': { bgcolor: tokens.bgElev2, color: tokens.text },
+                        '&:disabled': { opacity: 0.5, cursor: 'not-allowed' },
                     }}
                 >
-                    {title}
+                    Cancel
                 </Box>
-            ))}
-        </Box>
+                <Box sx={{ display: 'flex', gap: '8px' }}>
+                    {!isEdit && (
+                        <Box
+                            component="button"
+                            onClick={() => handleSave(true)}
+                            disabled={!canSave || mutation.isPending}
+                            sx={{
+                                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                px: '14px', py: '8px', borderRadius: '8px', border: `1px solid ${tokens.divider}`,
+                                bgcolor: 'transparent', color: tokens.textSecondary, fontSize: '0.8125rem', fontWeight: 500,
+                                cursor: 'pointer', '&:hover:not(:disabled)': { bgcolor: tokens.bgElev2, color: tokens.text },
+                                '&:disabled': { opacity: 0.5, cursor: 'not-allowed' },
+                            }}
+                        >
+                            {mutation.isPending && addAnother
+                                ? <><CircularProgress size={12} sx={{ color: tokens.textSecondary }} /> Saving…</>
+                                : <><AddOutlinedIcon sx={{ fontSize: 13 }} /> Save & add another</>
+                            }
+                        </Box>
+                    )}
+                    <Box
+                        component="button"
+                        onClick={() => handleSave(false)}
+                        disabled={!canSave || mutation.isPending}
+                        sx={{
+                            display: 'inline-flex', alignItems: 'center', gap: '7px',
+                            px: '14px', py: '8px', borderRadius: '8px', border: 'none',
+                            bgcolor: tokens.indigo, color: '#fff', fontSize: '0.8125rem', fontWeight: 500,
+                            cursor: 'pointer',
+                            boxShadow: `0 1px 0 rgba(255,255,255,0.12) inset, 0 8px 18px -8px ${tokens.indigo}`,
+                            '&:hover:not(:disabled)': { bgcolor: '#5558e3' },
+                            '&:disabled': { opacity: 0.5, cursor: 'not-allowed' },
+                        }}
+                    >
+                        {mutation.isPending && !addAnother
+                            ? <><CircularProgress size={12} sx={{ color: '#fff' }} /> Saving…</>
+                            : <><CheckOutlinedIcon sx={{ fontSize: 13 }} /> {isEdit ? 'Save changes' : 'Create student'}</>
+                        }
+                    </Box>
+                </Box>
+            </Box>
+        </Drawer>
+    )
+}
+
+// ── Row actions menu ──────────────────────────────────────────────────────────
+
+function RowMenu({ student, onEdit }: { student: Student; onEdit: () => void }) {
+    const queryClient = useQueryClient()
+    const [anchor, setAnchor] = useState<null | HTMLElement>(null)
+    const isActive = student.status === 'ACTIVE'
+
+    const statusMutation = useMutation({
+        mutationFn: () => updateUser(student.id, { status: isActive ? 'INACTIVE' : 'ACTIVE' }),
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['students'] }),
+        onSettled: () => setAnchor(null),
+    })
+
+    return (
+        <>
+            <Box
+                component="button"
+                onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); setAnchor(e.currentTarget) }}
+                sx={{
+                    width: 28, height: 28, borderRadius: '6px', bgcolor: 'transparent',
+                    border: 'none', display: 'grid', placeItems: 'center',
+                    cursor: 'pointer', color: tokens.textDisabled,
+                    '&:hover': { bgcolor: tokens.bgElev2, color: tokens.text },
+                }}
+            >
+                <MoreHorizOutlinedIcon sx={{ fontSize: 16 }} />
+            </Box>
+            <Menu
+                anchorEl={anchor}
+                open={Boolean(anchor)}
+                onClose={() => setAnchor(null)}
+                onClick={(e) => e.stopPropagation()}
+                slotProps={{
+                    paper: {
+                        sx: {
+                            bgcolor: tokens.bgElev1,
+                            border: `1px solid ${tokens.divider}`,
+                            boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                            borderRadius: '8px',
+                            minWidth: 160,
+                        },
+                    },
+                }}
+                transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+                anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+            >
+                <MenuItem
+                    onClick={() => { setAnchor(null); onEdit() }}
+                    sx={{ fontSize: '0.8125rem', color: tokens.text, gap: 1, '&:hover': { bgcolor: tokens.bgElev2 } }}
+                >
+                    <ListItemIcon sx={{ minWidth: 'unset' }}><EditOutlinedIcon sx={{ fontSize: 15, color: tokens.textSecondary }} /></ListItemIcon>
+                    <ListItemText>Edit</ListItemText>
+                </MenuItem>
+                <MenuItem
+                    onClick={() => statusMutation.mutate()}
+                    disabled={statusMutation.isPending}
+                    sx={{
+                        fontSize: '0.8125rem', gap: 1,
+                        color: isActive ? tokens.red : tokens.green,
+                        '&:hover': { bgcolor: isActive ? alpha(tokens.red, 0.08) : alpha(tokens.green, 0.08) },
+                        '&.Mui-disabled': { opacity: 0.4 },
+                    }}
+                >
+                    <ListItemIcon sx={{ minWidth: 'unset' }}>
+                        {statusMutation.isPending
+                            ? <CircularProgress size={13} sx={{ color: isActive ? tokens.red : tokens.green }} />
+                            : isActive
+                                ? <BlockOutlinedIcon sx={{ fontSize: 15, color: tokens.red }} />
+                                : <CheckCircleOutlineOutlinedIcon sx={{ fontSize: 15, color: tokens.green }} />
+                        }
+                    </ListItemIcon>
+                    <ListItemText>{isActive ? 'Deactivate' : 'Activate'}</ListItemText>
+                </MenuItem>
+            </Menu>
+        </>
     )
 }
 
 // ── Student row ───────────────────────────────────────────────────────────────
 
-function StudentRow({ student: s }: { student: Student }) {
+function StudentRow({ student: s, onEdit }: { student: Student; onEdit: () => void }) {
     return (
         <TableRow sx={{ cursor: 'pointer', '&:hover': { bgcolor: alpha(tokens.indigo, 0.04) } }}>
             {/* Name */}
@@ -147,25 +492,15 @@ function StudentRow({ student: s }: { student: Student }) {
                 {s.email ?? '—'}
             </TableCell>
 
-            {/* Enrolled courses */}
-            <TableCell><EnrolledCourses student={s} /></TableCell>
+            {/* Enrolled course */}
+            <TableCell><EnrolledCourse student={s} /></TableCell>
 
             {/* Status */}
             <TableCell><StatusBadge status={s.status} /></TableCell>
 
             {/* Actions */}
             <TableCell onClick={(e) => e.stopPropagation()}>
-                <Box
-                    component="button"
-                    sx={{
-                        width: 28, height: 28, borderRadius: '6px', bgcolor: 'transparent',
-                        border: 'none', display: 'grid', placeItems: 'center',
-                        cursor: 'pointer', color: tokens.textDisabled,
-                        '&:hover': { bgcolor: tokens.bgElev2, color: tokens.text },
-                    }}
-                >
-                    <MoreHorizOutlinedIcon sx={{ fontSize: 16 }} />
-                </Box>
+                <RowMenu student={s} onEdit={onEdit} />
             </TableCell>
         </TableRow>
     )
@@ -175,7 +510,9 @@ function StudentRow({ student: s }: { student: Student }) {
 
 export const StudentsPage = () => {
     const [search, setSearch] = useState('')
-    const [filter, setFilter] = useState<FilterKey>('all')
+    const [filter, setFilter] = useState<FilterKey>('ACTIVE')
+    const [drawerOpen, setDrawerOpen] = useState(false)
+    const [editingStudent, setEditingStudent] = useState<Student | undefined>(undefined)
 
     const { data: students = [], isLoading } = useQuery({
         queryKey: ['students'],
@@ -203,6 +540,12 @@ export const StudentsPage = () => {
 
     return (
         <AdminLayout activeNav="students" crumb="People" title="Students">
+            <StudentDrawer
+                open={drawerOpen}
+                student={editingStudent}
+                onClose={() => { setDrawerOpen(false); setEditingStudent(undefined) }}
+            />
+
             {/* Page header */}
             <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2, mb: '4px' }}>
                 <Box>
@@ -215,6 +558,7 @@ export const StudentsPage = () => {
                 </Box>
                 <Box
                     component="button"
+                    onClick={() => { setEditingStudent(undefined); setDrawerOpen(true) }}
                     sx={{
                         display: 'inline-flex', alignItems: 'center', gap: '7px',
                         px: '14px', py: '8px', borderRadius: '8px', border: 'none',
@@ -264,7 +608,7 @@ export const StudentsPage = () => {
                                 <TableCell>Student</TableCell>
                                 <TableCell>Phone</TableCell>
                                 <TableCell>Email</TableCell>
-                                <TableCell>Enrolled courses</TableCell>
+                                <TableCell>Course</TableCell>
                                 <TableCell>Status</TableCell>
                                 <TableCell sx={{ width: 50 }} />
                             </TableRow>
@@ -280,7 +624,13 @@ export const StudentsPage = () => {
                                             </TableCell>
                                         </TableRow>
                                     )
-                                    : filtered.map((s) => <StudentRow key={s.id} student={s} />)
+                                    : filtered.map((s) => (
+                                        <StudentRow
+                                            key={s.id}
+                                            student={s}
+                                            onEdit={() => { setEditingStudent(s); setDrawerOpen(true) }}
+                                        />
+                                    ))
                             }
                         </TableBody>
                     </Table>
