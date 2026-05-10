@@ -32,19 +32,17 @@ import CheckOutlinedIcon from '@mui/icons-material/CheckOutlined'
 import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import MoreHorizOutlinedIcon from '@mui/icons-material/MoreHorizOutlined'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createUser, getCourses, getStudents, updateUser } from '../api/client.ts'
+import { createStudent, getCourses, getStudents, updateStudent } from '../api/client.ts'
 import { AdminLayout } from '../components/AdminLayout.tsx'
 import { tokens } from '../theme.ts'
 import { stringToColor, initials } from '../utils/ui.ts'
-import type { GetStudentResponse, Course } from "@rahuldey98/alqamar-models"
-
-type Student = GetStudentResponse & { course?: Course }
+import type { Student } from "@rahuldey98/alqamar-models"
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 
-function StatusBadge({ status }: { status: Student['status'] }) {
+function StatusBadge({ status }: { status: Student["status"] }) {
     const active = status === 'ACTIVE'
     return (
         <Box
@@ -142,7 +140,7 @@ function StudentDrawer({ open, onClose, student }: StudentDrawerProps) {
     const [phone, setPhone] = useState(student?.phone ?? '')
     const [email, setEmail] = useState(student?.email ?? '')
     const [feesDate, setFeesDate] = useState(student?.feesDate ?? todayISO())
-    const [courseId, setCourseId] = useState<number | ''>(student?.courseId ?? '')
+    const [courseId, setCourseId] = useState<number | ''>(student?.course?.id ?? '')
     const [phoneTouched, setPhoneTouched] = useState(false)
     const [addAnother, setAddAnother] = useState(false)
 
@@ -150,15 +148,6 @@ function StudentDrawer({ open, onClose, student }: StudentDrawerProps) {
         queryKey: ['courses'],
         queryFn: getCourses,
     })
-
-    useEffect(() => {
-        setName(student?.name ?? '')
-        setPhone(student?.phone ?? '')
-        setEmail(student?.email ?? '')
-        setFeesDate(student?.feesDate ?? todayISO())
-        setCourseId(student?.courseId ?? '')
-        setPhoneTouched(false)
-    }, [student])
 
     const resetForm = () => {
         setName(''); setPhone(''); setEmail(''); setFeesDate(todayISO()); setCourseId(''); setPhoneTouched(false)
@@ -169,14 +158,13 @@ function StudentDrawer({ open, onClose, student }: StudentDrawerProps) {
     const buildBody = () => ({
         name: name.trim(),
         phone: phone.trim(),
-        role: 'STUDENT' as const,
         ...(email.trim() ? { email: email.trim() } : {}),
         ...(feesDate ? { feesDate: toDateTime(feesDate) } : {}),
         ...(courseId !== '' ? { courseId: courseId as number } : {}),
     })
 
     const createMutation = useMutation({
-        mutationFn: () => createUser(buildBody()),
+        mutationFn: () => createStudent(buildBody()),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['students'] })
             if (addAnother) { resetForm(); createMutation.reset() }
@@ -185,10 +173,10 @@ function StudentDrawer({ open, onClose, student }: StudentDrawerProps) {
     })
 
     const editMutation = useMutation({
-        mutationFn: () => updateUser(student!.id, {
-            name: name.trim(),
-            phone: phone.trim(),
-            ...(email.trim() ? { email: email.trim() } : {}),
+        mutationFn: () => updateStudent(student!.id, {
+                name: name.trim(),
+                phone: phone.trim(),
+                ...(email.trim() ? { email: email.trim() } : {}),
             ...(feesDate ? { feesDate: toDateTime(feesDate) } : {}),
             ...(courseId !== '' ? { courseId: courseId as number } : {}),
         }),
@@ -404,7 +392,7 @@ function RowMenu({ student, onEdit }: { student: Student; onEdit: () => void }) 
     const isActive = student.status === 'ACTIVE'
 
     const statusMutation = useMutation({
-        mutationFn: () => updateUser(student.id, { status: isActive ? 'INACTIVE' : 'ACTIVE' }),
+        mutationFn: () => updateStudent(student.id, { status: isActive ? 'INACTIVE' : 'ACTIVE' }),
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['students'] }),
         onSettled: () => setAnchor(null),
     })
@@ -553,6 +541,7 @@ export const StudentsPage = () => {
     return (
         <AdminLayout activeNav="students" crumb="People" title="Students">
             <StudentDrawer
+                key={editingStudent?.id ?? 'new'}
                 open={drawerOpen}
                 student={editingStudent}
                 onClose={() => { setDrawerOpen(false); setEditingStudent(undefined) }}

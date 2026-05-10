@@ -30,17 +30,17 @@ import BlockOutlinedIcon from '@mui/icons-material/BlockOutlined'
 import CheckCircleOutlineOutlinedIcon from '@mui/icons-material/CheckCircleOutlineOutlined'
 import VideoCallOutlinedIcon from '@mui/icons-material/VideoCallOutlined'
 import CheckOutlinedIcon from '@mui/icons-material/CheckOutlined'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createUser, getTeachers, updateUser } from '../api/client.ts'
+import { createTeacher, getTeachers, updateTeacher } from '../api/client.ts'
 import { AdminLayout } from '../components/AdminLayout.tsx'
 import { tokens } from '../theme.ts'
 import { stringToColor, initials } from '../utils/ui.ts'
-import type { User as Teacher } from "@rahuldey98/alqamar-models/dist/entities/user"
+import type { Teacher } from "@rahuldey98/alqamar-models"
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 
-function StatusBadge({ status }: { status: Teacher['status'] }) {
+function StatusBadge({ status }: { status: Teacher["status"] }) {
     const active = status === 'ACTIVE'
     return (
         <Box
@@ -120,17 +120,10 @@ function TeacherDrawer({ open, onClose, teacher }: TeacherDrawerProps) {
     const [phoneTouched, setPhoneTouched] = useState(false)
     const [addAnother, setAddAnother] = useState(false)
 
-    useEffect(() => {
-        setName(teacher?.name ?? '')
-        setPhone(teacher?.phone ?? '')
-        setEmail(teacher?.email ?? '')
-        setPhoneTouched(false)
-    }, [teacher])
-
     const resetForm = () => { setName(''); setPhone(''); setEmail(''); setPhoneTouched(false) }
 
     const createMutation = useMutation({
-        mutationFn: () => createUser({ name: name.trim(), phone: phone.trim(), role: 'TEACHER', ...(email.trim() ? { email: email.trim() } : {}) }),
+        mutationFn: () => createTeacher({ name: name.trim(), phone: phone.trim(), ...(email.trim() ? { email: email.trim() } : {}) }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['teachers'] })
             if (addAnother) { resetForm(); createMutation.reset() }
@@ -139,7 +132,7 @@ function TeacherDrawer({ open, onClose, teacher }: TeacherDrawerProps) {
     })
 
     const editMutation = useMutation({
-        mutationFn: () => updateUser(teacher!.id, { name: name.trim(), phone: phone.trim(), ...(email.trim() ? { email: email.trim() } : { email: undefined }) }),
+        mutationFn: () => updateTeacher(teacher!.id, { name: name.trim(), phone: phone.trim(), ...(email.trim() ? { email: email.trim() } : { email: undefined }) }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['teachers'] })
             onClose()
@@ -350,6 +343,7 @@ export const TeachersPage = () => {
     return (
         <AdminLayout activeNav="teachers" crumb="People" title="Teachers">
             <TeacherDrawer
+                key={editingTeacher?.id ?? 'new'}
                 open={drawerOpen}
                 teacher={editingTeacher}
                 onClose={() => { setDrawerOpen(false); setEditingTeacher(undefined) }}
@@ -460,7 +454,7 @@ function RowMenu({ teacher, onEdit }: { teacher: Teacher; onEdit: () => void }) 
     const isActive = teacher.status === 'ACTIVE'
 
     const statusMutation = useMutation({
-        mutationFn: () => updateUser(teacher.id, { status: isActive ? 'INACTIVE' : 'ACTIVE' }),
+        mutationFn: () => updateTeacher(teacher.id, { status: isActive ? 'INACTIVE' : 'ACTIVE' }),
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['teachers'] }),
         onSettled: () => setAnchor(null),
     })

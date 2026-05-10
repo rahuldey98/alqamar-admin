@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { LoginRequest, LoginResponse, ApiSuccessResponse, User, GetStudentResponse, DashboardOverview, CreateUserRequest, CreateUserResponse, UpdateUserRequest, UpdateUserResponse, Course } from '@rahuldey98/alqamar-models'
+import type { LoginRequest, LoginResponse, ApiSuccessResponse, DashboardOverview, CreateUserRequest, Course, Student, Teacher } from '@rahuldey98/alqamar-models'
 import { getAccessToken } from '../utils/auth.ts'
 
 export const api = axios.create({
@@ -29,25 +29,40 @@ export const getDashboardOverview = async (): Promise<DashboardOverview> => {
   return data.data
 }
 
-
-export const getTeachers = async (): Promise<User[]> => {
-  const { data } = await api.get<ApiSuccessResponse<User[]>>('users/teachers')
+export const getTeachers = async (): Promise<Teacher[]> => {
+  const { data } = await api.get<ApiSuccessResponse<Teacher[]>>('users/teachers')
   return data.data
 }
 
-
-export const getStudents = async (): Promise<GetStudentResponse[]> => {
-  const { data } = await api.get<ApiSuccessResponse<GetStudentResponse[]>>('users/students')
+export const getStudents = async (): Promise<Student[]> => {
+  const { data } = await api.get<ApiSuccessResponse<Student[]>>('users/students')
   return data.data
 }
 
-export const createUser = async (body: CreateUserRequest): Promise<CreateUserResponse> => {
-  const { data } = await api.post<ApiSuccessResponse<CreateUserResponse>>('users', body)
+type CreateTeacherRequest = Omit<CreateUserRequest, 'role'>
+
+interface CreateStudentRequest extends Omit<CreateUserRequest, 'role'> {
+  feesDate?: string
+  courseId?: number
+}
+
+export const createTeacher = async (body: CreateTeacherRequest): Promise<Teacher> => {
+  const { data } = await api.post<ApiSuccessResponse<Teacher>>('users/teachers', body)
   return data.data
 }
 
-export const updateUser = async (id: number, body: UpdateUserRequest): Promise<UpdateUserResponse> => {
-  const { data } = await api.patch<ApiSuccessResponse<UpdateUserResponse>>(`users/${id}`, body)
+export const updateTeacher = async (id: number, body: Partial<Teacher>): Promise<Teacher> => {
+  const { data } = await api.patch<ApiSuccessResponse<Teacher>>(`users/teachers/${id}`, body)
+  return data.data
+}
+
+export const createStudent = async (body: CreateStudentRequest): Promise<Student> => {
+  const { data } = await api.post<ApiSuccessResponse<Student>>('users/students', body)
+  return data.data
+}
+
+export const updateStudent = async (id: number, body: Partial<Student>): Promise<Student> => {
+  const { data } = await api.patch<ApiSuccessResponse<Student>>(`users/students/${id}`, body)
   return data.data
 }
 
