@@ -44,6 +44,7 @@ type CreateTeacherRequest = Omit<CreateUserRequest, 'role'>
 interface CreateStudentRequest extends Omit<CreateUserRequest, 'role'> {
   feesDate?: string
   courseId?: number
+  teacherId?: number
 }
 
 export const createTeacher = async (body: CreateTeacherRequest): Promise<Teacher> => {

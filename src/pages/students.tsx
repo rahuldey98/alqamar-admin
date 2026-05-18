@@ -1,5 +1,6 @@
 import {
     alpha,
+    Autocomplete,
     Avatar,
     Box,
     Chip,
@@ -32,13 +33,13 @@ import CheckOutlinedIcon from '@mui/icons-material/CheckOutlined'
 import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import MoreHorizOutlinedIcon from '@mui/icons-material/MoreHorizOutlined'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createStudent, getCourses, getStudents, updateStudent } from '../api/client.ts'
+import { createStudent, getCourses, getStudents, getTeachers, updateStudent } from '../api/client.ts'
 import { AdminLayout } from '../components/AdminLayout.tsx'
 import { tokens } from '../theme.ts'
 import { stringToColor, initials } from '../utils/ui.ts'
-import type { Student } from "@rahuldey98/alqamar-models"
+import type { Student, Teacher } from "@rahuldey98/alqamar-models"
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 
@@ -141,6 +142,7 @@ function StudentDrawer({ open, onClose, student }: StudentDrawerProps) {
     const [email, setEmail] = useState(student?.email ?? '')
     const [feesDate, setFeesDate] = useState(student?.feesDate ?? todayISO())
     const [courseId, setCourseId] = useState<number | ''>(student?.course?.id ?? '')
+    const [teacher, setTeacher] = useState<Teacher | null>(null)
     const [phoneTouched, setPhoneTouched] = useState(false)
     const [addAnother, setAddAnother] = useState(false)
 
@@ -149,8 +151,19 @@ function StudentDrawer({ open, onClose, student }: StudentDrawerProps) {
         queryFn: getCourses,
     })
 
+    const { data: teachers = [], isLoading: teachersLoading } = useQuery({
+        queryKey: ['teachers'],
+        queryFn: getTeachers,
+    })
+
+    useEffect(() => {
+        if (isEdit && student?.teacherId && teachers.length > 0) {
+            setTeacher(teachers.find(t => t.id === student.teacherId) ?? null)
+        }
+    }, [teachers, isEdit, student?.teacherId])
+
     const resetForm = () => {
-        setName(''); setPhone(''); setEmail(''); setFeesDate(todayISO()); setCourseId(''); setPhoneTouched(false)
+        setName(''); setPhone(''); setEmail(''); setFeesDate(todayISO()); setCourseId(''); setTeacher(null); setPhoneTouched(false)
     }
 
     const toDateTime = (d: string) => d ? new Date(d).toISOString() : undefined
@@ -161,6 +174,7 @@ function StudentDrawer({ open, onClose, student }: StudentDrawerProps) {
         ...(email.trim() ? { email: email.trim() } : {}),
         ...(feesDate ? { feesDate: toDateTime(feesDate) } : {}),
         ...(courseId !== '' ? { courseId: courseId as number } : {}),
+        ...(teacher ? { teacherId: teacher.id } : {}),
     })
 
     const createMutation = useMutation({
@@ -179,6 +193,7 @@ function StudentDrawer({ open, onClose, student }: StudentDrawerProps) {
                 ...(email.trim() ? { email: email.trim() } : {}),
             ...(feesDate ? { feesDate: toDateTime(feesDate) } : {}),
             ...(courseId !== '' ? { courseId: courseId as number } : {}),
+            ...(teacher ? { teacherId: teacher.id } : {}),
         }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['students'] })
@@ -289,7 +304,6 @@ function StudentDrawer({ open, onClose, student }: StudentDrawerProps) {
                             type="date"
                             value={feesDate}
                             onChange={(e) => setFeesDate(e.target.value)}
-                            helperText="Optional"
                             disabled={mutation.isPending}
                             slotProps={{ inputLabel: { shrink: true } }}
                         />
@@ -311,6 +325,30 @@ function StudentDrawer({ open, onClose, student }: StudentDrawerProps) {
                             </Select>
                         </FormControl>
                     </Box>
+                    <Autocomplete
+                        options={teachers}
+                        getOptionLabel={(t) => t.name}
+                        value={teacher}
+                        onChange={(_, val) => setTeacher(val)}
+                        loading={teachersLoading}
+                        disabled={mutation.isPending}
+                        isOptionEqualToValue={(a, b) => a.id === b.id}
+                        renderInput={(params) => (
+                            <TextField
+                                {...params}
+                                label="Assigned teacher"
+                                placeholder="Search teacher…"
+                            />
+                        )}
+                        renderOption={(props, t) => (
+                            <Box component="li" {...props} key={t.id} sx={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <Avatar sx={{ width: 24, height: 24, fontSize: '0.65rem', fontWeight: 600, bgcolor: stringToColor(t.name), flexShrink: 0 }}>
+                                    {initials(t.name)}
+                                </Avatar>
+                                {t.name}
+                            </Box>
+                        )}
+                    />
                 </Box>
 
                 {mutation.isError && (
