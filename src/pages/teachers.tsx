@@ -59,6 +59,28 @@ function StatusBadge({ status }: { status: Teacher["status"] }) {
     )
 }
 
+function StudentCountBadge({ count }: { count: number }) {
+    const hasStudents = count > 0
+    return (
+        <Box
+            sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                px: '8px',
+                py: '2px',
+                borderRadius: '999px',
+                fontSize: '0.71875rem',
+                fontWeight: 500,
+                bgcolor: hasStudents ? alpha(tokens.cyan, 0.1) : alpha(tokens.textDisabled, 0.05),
+                color: hasStudents ? tokens.cyan : tokens.textDisabled,
+                border: `1px solid ${hasStudents ? alpha(tokens.cyan, 0.2) : alpha(tokens.textDisabled, 0.1)}`,
+            }}
+        >
+            {count} {count === 1 ? 'student' : 'students'}
+        </Box>
+    )
+}
+
 // ── Filter chips ──────────────────────────────────────────────────────────────
 
 type FilterKey = 'all' | 'ACTIVE' | 'INACTIVE'
@@ -412,7 +434,7 @@ export const TeachersPage = () => {
                             <TableRow>
                                 <TableCell>Name</TableCell>
                                 <TableCell>Phone</TableCell>
-                                <TableCell>Email</TableCell>
+                                <TableCell>No. of students</TableCell>
                                 <TableCell>Meet link</TableCell>
                                 <TableCell>Status</TableCell>
                                 <TableCell sx={{ width: 50 }} />
@@ -549,9 +571,9 @@ function TeacherRow({ teacher: t, onEdit }: { teacher: Teacher; onEdit: () => vo
                 {t.phone}
             </TableCell>
 
-            {/* Email */}
-            <TableCell sx={{ fontSize: '0.78125rem', color: t.email ? tokens.textSecondary : tokens.textDisabled }}>
-                {t.email ?? '—'}
+            {/* Students */}
+            <TableCell>
+                <StudentCountBadge count={t.noOfStudents} />
             </TableCell>
 
             {/* Meet link */}
