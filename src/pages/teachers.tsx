@@ -32,34 +32,17 @@ import VideoCallOutlinedIcon from '@mui/icons-material/VideoCallOutlined'
 import CheckOutlinedIcon from '@mui/icons-material/CheckOutlined'
 import ArrowUpwardOutlinedIcon from '@mui/icons-material/ArrowUpwardOutlined'
 import UnfoldMoreOutlinedIcon from '@mui/icons-material/UnfoldMoreOutlined'
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined'
+import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createTeacher, getTeachers, updateTeacher } from '../api/client.ts'
 import { AdminLayout } from '../components/AdminLayout.tsx'
 import { tokens } from '../theme.ts'
 import { stringToColor, initials } from '../utils/ui.ts'
+import { createDefaultPassword } from '../utils/password.ts'
 import type { Teacher } from "@rahuldey98/alqamar-models"
 
-// ── Status badge ──────────────────────────────────────────────────────────────
-
-function StatusBadge({ status }: { status: Teacher["status"] }) {
-    const active = status === 'ACTIVE'
-    return (
-        <Box
-            sx={{
-                display: 'inline-flex', alignItems: 'center', gap: '5px',
-                px: '8px', py: '3px', borderRadius: '999px',
-                fontSize: '0.71875rem', fontWeight: 500,
-                bgcolor: active ? alpha(tokens.green, 0.12) : alpha(tokens.textSecondary, 0.08),
-                color: active ? tokens.green : tokens.textSecondary,
-                border: `1px solid ${active ? alpha(tokens.green, 0.2) : alpha(tokens.textSecondary, 0.15)}`,
-            }}
-        >
-            <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: active ? tokens.green : tokens.textSecondary, flexShrink: 0 }} />
-            {active ? 'Active' : 'Inactive'}
-        </Box>
-    )
-}
 
 function StudentCountBadge({ count }: { count: number }) {
     const hasStudents = count > 0
@@ -145,12 +128,59 @@ function SortableCell({ label, colKey, sortCol, sortDir, onSort, sx }: {
     )
 }
 
-// ── Teacher row skeleton ──────────────────────────────────────────────────────
+// ── Password cell ──────────────────────────────────────────────────────────────
+
+function PasswordCell({ name }: { name: string }) {
+    const [visible, setVisible] = useState(false)
+    const [copied, setCopied] = useState(false)
+    const password = createDefaultPassword(name)
+
+    const handleCopy = () => {
+        navigator.clipboard.writeText(password)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 1500)
+    }
+
+    return (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: '4px' }} onClick={(e) => e.stopPropagation()}>
+            <Typography sx={{
+                fontSize: '0.78125rem',
+                fontFamily: '"JetBrains Mono", monospace',
+                color: tokens.textSecondary,
+                letterSpacing: visible ? 'normal' : '0.15em',
+                minWidth: 72,
+            }}>
+                {visible ? password : '••••••'}
+            </Typography>
+            {!visible
+                ? (
+                    <IconButton size="small" onClick={() => setVisible(true)}
+                        sx={{ p: '3px', color: tokens.textDisabled, '&:hover': { color: tokens.textSecondary, bgcolor: tokens.bgElev2 } }}
+                    >
+                        <VisibilityOutlinedIcon sx={{ fontSize: 13 }} />
+                    </IconButton>
+                )
+                : (
+                    <IconButton size="small" onClick={handleCopy}
+                        sx={{ p: '3px', color: copied ? tokens.green : tokens.textDisabled, '&:hover': { color: copied ? tokens.green : tokens.textSecondary, bgcolor: tokens.bgElev2 } }}
+                    >
+                        {copied
+                            ? <CheckOutlinedIcon sx={{ fontSize: 13 }} />
+                            : <ContentCopyOutlinedIcon sx={{ fontSize: 13 }} />
+                        }
+                    </IconButton>
+                )
+            }
+        </Box>
+    )
+}
+
+// ── Teacher row skeleton ──────────────────────────────────────────────────────────
 
 function RowSkeleton() {
     return (
         <TableRow>
-            {[48, 160, 110, 130, 80, 70].map((w, i) => (
+            {[48, 160, 100, 110, 130, 70].map((w, i) => (
                 <TableCell key={i}>
                     <Skeleton variant="rounded" width={w} height={14} sx={{ bgcolor: alpha(tokens.text, 0.05) }} />
                 </TableCell>
@@ -488,9 +518,9 @@ export const TeachersPage = () => {
                             <TableRow>
                                 <SortableCell label="Name" colKey="name" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                                 <SortableCell label="Phone" colKey="phone" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+                                <TableCell>Password</TableCell>
                                 <SortableCell label="No. of students" colKey="noOfStudents" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                                 <SortableCell label="Meet link" colKey="meetLink" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
-                                <SortableCell label="Status" colKey="status" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                                 <TableCell sx={{ width: 50 }} />
                             </TableRow>
                         </TableHead>
@@ -625,6 +655,9 @@ function TeacherRow({ teacher: t, onEdit }: { teacher: Teacher; onEdit: () => vo
                 {t.phone}
             </TableCell>
 
+            {/* Password */}
+            <TableCell><PasswordCell name={t.name} /></TableCell>
+
             {/* Students */}
             <TableCell>
                 <StudentCountBadge count={t.noOfStudents} />
@@ -652,9 +685,6 @@ function TeacherRow({ teacher: t, onEdit }: { teacher: Teacher; onEdit: () => vo
                     <Typography sx={{ fontSize: '0.78125rem', color: tokens.textDisabled }}>—</Typography>
                 )}
             </TableCell>
-
-            {/* Status */}
-            <TableCell><StatusBadge status={t.status} /></TableCell>
 
             {/* Actions */}
             <TableCell onClick={(e) => e.stopPropagation()}>
