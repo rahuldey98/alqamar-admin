@@ -34,6 +34,11 @@ export const getTeachers = async (): Promise<Teacher[]> => {
   return data.data
 }
 
+export const getTeacherStudents = async (id: number): Promise<Student[]> => {
+  const { data } = await api.get<ApiSuccessResponse<Student[]>>(`users/teachers/${id}/students`)
+  return data.data
+}
+
 export const getStudents = async (): Promise<Student[]> => {
   const { data } = await api.get<ApiSuccessResponse<Student[]>>('users/students')
   return data.data

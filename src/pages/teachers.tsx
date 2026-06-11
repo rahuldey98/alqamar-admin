@@ -12,6 +12,7 @@ import {
     ListItemText,
     Menu,
     MenuItem,
+    Popper,
     Skeleton,
     Table,
     TableBody,
@@ -36,7 +37,7 @@ import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined'
 import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createTeacher, getTeachers, updateTeacher } from '../api/client.ts'
+import { createTeacher, getTeacherStudents, getTeachers, updateTeacher } from '../api/client.ts'
 import { AdminLayout } from '../components/AdminLayout.tsx'
 import { tokens } from '../theme.ts'
 import { stringToColor, initials } from '../utils/ui.ts'
@@ -44,24 +45,90 @@ import { createDefaultPassword } from '../utils/password.ts'
 import type { Teacher } from "@rahuldey98/alqamar-models"
 
 
-function StudentCountBadge({ count }: { count: number }) {
+function StudentCountBadge({ count, teacherId }: { count: number; teacherId: number }) {
     const hasStudents = count > 0
+    const [anchor, setAnchor] = useState<HTMLElement | null>(null)
+    const open = Boolean(anchor)
+
+    const { data: students = [], isFetching } = useQuery({
+        queryKey: ['teacher-students', teacherId],
+        queryFn: () => getTeacherStudents(teacherId),
+        enabled: open,
+        staleTime: 30_000,
+    })
+
     return (
         <Box
-            sx={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                px: '8px',
-                py: '2px',
-                borderRadius: '999px',
-                fontSize: '0.71875rem',
-                fontWeight: 500,
-                bgcolor: hasStudents ? alpha(tokens.cyan, 0.1) : alpha(tokens.textDisabled, 0.05),
-                color: hasStudents ? tokens.cyan : tokens.textDisabled,
-                border: `1px solid ${hasStudents ? alpha(tokens.cyan, 0.2) : alpha(tokens.textDisabled, 0.1)}`,
-            }}
+            onMouseEnter={(e) => setAnchor(e.currentTarget)}
+            onMouseLeave={() => setAnchor(null)}
+            sx={{ display: 'inline-flex' }}
         >
-            {count} {count === 1 ? 'student' : 'students'}
+            <Box
+                sx={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    px: '8px',
+                    py: '2px',
+                    borderRadius: '999px',
+                    fontSize: '0.71875rem',
+                    fontWeight: 500,
+                    cursor: hasStudents ? 'default' : 'default',
+                    bgcolor: hasStudents ? alpha(tokens.cyan, 0.1) : alpha(tokens.textDisabled, 0.05),
+                    color: hasStudents ? tokens.cyan : tokens.textDisabled,
+                    border: `1px solid ${hasStudents ? alpha(tokens.cyan, 0.2) : alpha(tokens.textDisabled, 0.1)}`,
+                    transition: 'bgcolor 0.15s',
+                }}
+            >
+                {count} {count === 1 ? 'student' : 'students'}
+            </Box>
+
+            <Popper
+                open={open && hasStudents}
+                anchorEl={anchor}
+                placement="bottom-start"
+                modifiers={[{ name: 'offset', options: { offset: [0, 6] } }]}
+                sx={{ zIndex: 1400 }}
+            >
+                <Box
+                    sx={{
+                        bgcolor: tokens.bgElev1,
+                        border: `1px solid ${tokens.divider}`,
+                        borderRadius: '8px',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
+                        minWidth: 160,
+                        maxWidth: 240,
+                        overflow: 'hidden',
+                    }}
+                >
+                    <Box sx={{ px: '10px', py: '7px', borderBottom: `1px solid ${tokens.divider}` }}>
+                        <Typography sx={{ fontSize: '0.6875rem', fontWeight: 600, color: tokens.textDisabled, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                            Students
+                        </Typography>
+                    </Box>
+                    <Box sx={{ py: '4px' }}>
+                        {isFetching
+                            ? (
+                                <Box sx={{ px: '12px', py: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <CircularProgress size={11} sx={{ color: tokens.textDisabled }} />
+                                    <Typography sx={{ fontSize: '0.75rem', color: tokens.textDisabled }}>Loading…</Typography>
+                                </Box>
+                            )
+                            : students.length === 0
+                                ? <Typography sx={{ px: '12px', py: '8px', fontSize: '0.75rem', color: tokens.textDisabled }}>No students</Typography>
+                                : students.map((s) => (
+                                    <Box key={s.id} sx={{ display: 'flex', alignItems: 'center', gap: '8px', px: '10px', py: '5px' }}>
+                                        <Avatar sx={{ width: 20, height: 20, fontSize: '0.55rem', fontWeight: 600, bgcolor: stringToColor(s.name), flexShrink: 0 }}>
+                                            {initials(s.name)}
+                                        </Avatar>
+                                        <Typography sx={{ fontSize: '0.78125rem', color: tokens.textSecondary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            {s.name}
+                                        </Typography>
+                                    </Box>
+                                ))
+                        }
+                    </Box>
+                </Box>
+            </Popper>
         </Box>
     )
 }
@@ -660,7 +727,7 @@ function TeacherRow({ teacher: t, onEdit }: { teacher: Teacher; onEdit: () => vo
 
             {/* Students */}
             <TableCell>
-                <StudentCountBadge count={t.noOfStudents} />
+                <StudentCountBadge count={t.noOfStudents} teacherId={t.id} />
             </TableCell>
 
             {/* Meet link */}
