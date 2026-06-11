@@ -525,9 +525,20 @@ function StudentRow({ student: s, onEdit }: { student: Student; onEdit: () => vo
                 {s.phone}
             </TableCell>
 
-            {/* Email */}
-            <TableCell sx={{ fontSize: '0.78125rem', color: s.email ? tokens.textSecondary : tokens.textDisabled }}>
-                {s.email ?? '—'}
+            {/* Teacher */}
+            <TableCell>
+                {s.teacher ? (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                        <Avatar sx={{ width: 22, height: 22, fontSize: '0.6rem', fontWeight: 600, bgcolor: stringToColor(s.teacher.name) }}>
+                            {initials(s.teacher.name)}
+                        </Avatar>
+                        <Typography sx={{ fontSize: '0.78125rem', color: tokens.textSecondary }}>
+                            {s.teacher.name}
+                        </Typography>
+                    </Box>
+                ) : (
+                    <Typography sx={{ fontSize: '0.78125rem', color: tokens.textDisabled }}>—</Typography>
+                )}
             </TableCell>
 
             {/* Enrolled course */}
@@ -564,7 +575,7 @@ export const StudentsPage = () => {
             return (
                 s.name.toLowerCase().includes(q) ||
                 s.phone.includes(q) ||
-                (s.email ?? '').toLowerCase().includes(q)
+                (s.teacher?.name ?? '').toLowerCase().includes(q)
             )
         }
         return true
@@ -646,7 +657,7 @@ export const StudentsPage = () => {
                             <TableRow>
                                 <TableCell>Student</TableCell>
                                 <TableCell>Phone</TableCell>
-                                <TableCell>Email</TableCell>
+                                <TableCell>Teacher</TableCell>
                                 <TableCell>Course</TableCell>
                                 <TableCell>Status</TableCell>
                                 <TableCell sx={{ width: 50 }} />
