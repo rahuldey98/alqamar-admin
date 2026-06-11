@@ -30,6 +30,8 @@ import BlockOutlinedIcon from '@mui/icons-material/BlockOutlined'
 import CheckCircleOutlineOutlinedIcon from '@mui/icons-material/CheckCircleOutlineOutlined'
 import VideoCallOutlinedIcon from '@mui/icons-material/VideoCallOutlined'
 import CheckOutlinedIcon from '@mui/icons-material/CheckOutlined'
+import ArrowUpwardOutlinedIcon from '@mui/icons-material/ArrowUpwardOutlined'
+import UnfoldMoreOutlinedIcon from '@mui/icons-material/UnfoldMoreOutlined'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createTeacher, getTeachers, updateTeacher } from '../api/client.ts'
@@ -105,6 +107,41 @@ function FilterChip({ label, count, active, onClick }: { label: string; count: n
             {label}
             <Box component="span" sx={{ fontSize: '0.6875rem', color: tokens.textDisabled, ml: '2px' }}>{count}</Box>
         </Box>
+    )
+}
+
+// ── Sortable column header ────────────────────────────────────────────────────
+
+type SortDir = 'asc' | 'desc'
+
+function SortableCell({ label, colKey, sortCol, sortDir, onSort, sx }: {
+    label: string
+    colKey: string
+    sortCol: string
+    sortDir: SortDir
+    onSort: (col: string) => void
+    sx?: object
+}) {
+    const active = sortCol === colKey
+    return (
+        <TableCell
+            onClick={() => onSort(colKey)}
+            sx={{
+                cursor: 'pointer', userSelect: 'none',
+                '&:hover .sort-icon': { opacity: 1 },
+                ...sx,
+            }}
+        >
+            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                {label}
+                <Box className="sort-icon" sx={{ display: 'flex', opacity: active ? 1 : 0.3, transition: 'opacity 0.15s' }}>
+                    {active
+                        ? <ArrowUpwardOutlinedIcon sx={{ fontSize: 12, transform: sortDir === 'desc' ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                        : <UnfoldMoreOutlinedIcon sx={{ fontSize: 12 }} />
+                    }
+                </Box>
+            </Box>
+        </TableCell>
     )
 }
 
@@ -337,6 +374,13 @@ export const TeachersPage = () => {
     const [filter, setFilter] = useState<FilterKey>('ACTIVE')
     const [drawerOpen, setDrawerOpen] = useState(false)
     const [editingTeacher, setEditingTeacher] = useState<Teacher | undefined>(undefined)
+    const [sortCol, setSortCol] = useState('name')
+    const [sortDir, setSortDir] = useState<SortDir>('asc')
+
+    const handleSort = (col: string) => {
+        if (sortCol === col) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+        else { setSortCol(col); setSortDir('desc') }
+    }
 
     const { data: teachers = [], isLoading } = useQuery({
         queryKey: ['teachers'],
@@ -354,6 +398,16 @@ export const TeachersPage = () => {
             )
         }
         return true
+    })
+
+    const sorted = [...filtered].sort((a, b) => {
+        let cmp = 0
+        if (sortCol === 'name') cmp = a.name.localeCompare(b.name)
+        else if (sortCol === 'phone') cmp = a.phone.localeCompare(b.phone)
+        else if (sortCol === 'noOfStudents') cmp = a.noOfStudents - b.noOfStudents
+        else if (sortCol === 'meetLink') cmp = (a.meetLink ? 1 : 0) - (b.meetLink ? 1 : 0)
+        else if (sortCol === 'status') cmp = (a.status ?? '').localeCompare(b.status ?? '')
+        return sortDir === 'asc' ? cmp : -cmp
     })
 
     const counts: Record<FilterKey, number> = {
@@ -432,18 +486,18 @@ export const TeachersPage = () => {
                     <Table sx={{ minWidth: 640 }}>
                         <TableHead>
                             <TableRow>
-                                <TableCell>Name</TableCell>
-                                <TableCell>Phone</TableCell>
-                                <TableCell>No. of students</TableCell>
-                                <TableCell>Meet link</TableCell>
-                                <TableCell>Status</TableCell>
+                                <SortableCell label="Name" colKey="name" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+                                <SortableCell label="Phone" colKey="phone" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+                                <SortableCell label="No. of students" colKey="noOfStudents" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+                                <SortableCell label="Meet link" colKey="meetLink" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+                                <SortableCell label="Status" colKey="status" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                                 <TableCell sx={{ width: 50 }} />
                             </TableRow>
                         </TableHead>
                         <TableBody>
                             {isLoading
                                 ? Array.from({ length: 4 }).map((_, i) => <RowSkeleton key={i} />)
-                                : filtered.length === 0
+                                : sorted.length === 0
                                     ? (
                                         <TableRow>
                                             <TableCell colSpan={6} sx={{ textAlign: 'center', py: 5, color: tokens.textDisabled, fontSize: '0.8125rem', border: 0 }}>
@@ -451,7 +505,7 @@ export const TeachersPage = () => {
                                             </TableCell>
                                         </TableRow>
                                     )
-                                    : filtered.map((t) => (
+                                    : sorted.map((t) => (
                                         <TeacherRow
                                             key={t.id}
                                             teacher={t}
