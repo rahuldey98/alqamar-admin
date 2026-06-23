@@ -3,13 +3,20 @@ import PeopleOutlinedIcon from '@mui/icons-material/PeopleOutlined'
 import WorkOutlinedIcon from '@mui/icons-material/WorkOutlined'
 import EventOutlinedIcon from '@mui/icons-material/EventOutlined'
 import ArrowForwardOutlinedIcon from '@mui/icons-material/ArrowForwardOutlined'
+import PersonAddOutlinedIcon from '@mui/icons-material/PersonAddOutlined'
+import SchoolOutlinedIcon from '@mui/icons-material/SchoolOutlined'
+import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined'
+import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { getDashboardOverview, getClassesAttendance } from '../api/client.ts'
 import type { ClassAttendance } from '../api/client.ts'
 import { AdminLayout } from '../components/AdminLayout.tsx'
+import { TeacherDrawer } from '../components/TeacherDrawer.tsx'
+import { StudentDrawer } from '../components/StudentDrawer.tsx'
 import { tokens } from '../theme.ts'
 import { stringToColor, initials } from '../utils/ui.ts'
+import { useState } from 'react'
 import type { ReactNode } from 'react'
 
 // ── Stat card ─────────────────────────────────────────────────────────────────
@@ -94,6 +101,56 @@ function PersonCell({ name }: { name: string }) {
     )
 }
 
+// ── Quick actions ─────────────────────────────────────────────────────────────
+
+type QuickActionDef =
+    | { icon: ReactNode; label: string; desc: string; color: string; to: string; onClick?: never }
+    | { icon: ReactNode; label: string; desc: string; color: string; onClick: () => void; to?: never }
+
+function QuickActions({ onCreateTeacher, onCreateStudent }: { onCreateTeacher: () => void; onCreateStudent: () => void }) {
+    const navigate = useNavigate()
+
+    const actions: QuickActionDef[] = [
+        { icon: <PersonAddOutlinedIcon sx={{ fontSize: 15 }} />, label: 'Create teacher', desc: 'Onboard a new faculty member', color: tokens.indigo,  onClick: onCreateTeacher },
+        { icon: <SchoolOutlinedIcon    sx={{ fontSize: 15 }} />, label: 'Create student', desc: 'Enroll a new student',         color: tokens.green,   onClick: onCreateStudent },
+        { icon: <CalendarMonthOutlinedIcon sx={{ fontSize: 15 }} />, label: 'View attendance', desc: 'Session attendance',      color: tokens.cyan,    to: '/attendance' },
+        { icon: <BadgeOutlinedIcon     sx={{ fontSize: 15 }} />, label: 'All teachers',   desc: 'Browse faculty list',         color: tokens.violet,  to: '/teachers' },
+        { icon: <PeopleOutlinedIcon    sx={{ fontSize: 15 }} />, label: 'All students',   desc: 'Browse enrolled students',    color: tokens.amber,   to: '/students' },
+    ]
+
+    return (
+        <Box sx={{ bgcolor: tokens.bgElev1, border: `1px solid ${tokens.divider}`, borderRadius: '10px', overflow: 'hidden' }}>
+            <Box sx={{ px: '20px', py: '14px', borderBottom: `1px solid ${tokens.divider}` }}>
+                <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: tokens.text, letterSpacing: '-0.005em' }}>Quick actions</Typography>
+            </Box>
+            <Box sx={{ p: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                {actions.map(({ icon, label, desc, color, to, onClick }) => (
+                    <Box
+                        key={label}
+                        component="button"
+                        onClick={onClick ?? (() => navigate(to!))}
+                        sx={{
+                            textAlign: 'left', display: 'flex', gap: '12px', p: '12px',
+                            bgcolor: tokens.bgElev2, border: `1px solid ${tokens.divider}`,
+                            borderRadius: '8px', cursor: 'pointer', color: tokens.text,
+                            transition: 'border-color 0.15s, background 0.15s',
+                            '&:hover': { borderColor: color, bgcolor: alpha(color, 0.05) },
+                        }}
+                    >
+                        <Box sx={{ width: 32, height: 32, borderRadius: '8px', bgcolor: alpha(color, 0.15), color, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                            {icon}
+                        </Box>
+                        <Box sx={{ minWidth: 0, flex: 1 }}>
+                            <Typography sx={{ fontSize: '0.8125rem', fontWeight: 500, color: tokens.text }}>{label}</Typography>
+                            <Typography sx={{ fontSize: '0.71875rem', color: tokens.textSecondary, mt: '2px' }}>{desc}</Typography>
+                        </Box>
+                    </Box>
+                ))}
+            </Box>
+        </Box>
+    )
+}
+
 // ── Sessions section ──────────────────────────────────────────────────────────
 
 const TABLE_HEADERS = ['Time', 'Teacher', 'Student', 'Subject', 'Status']
@@ -121,7 +178,7 @@ function TodaySessionsSection() {
 
     const sessions = [...rawSessions]
         .sort((a, b) => b.startTime.localeCompare(a.startTime))
-        .slice(0, 15)
+        .slice(0, 10)
 
     return (
         <Box sx={{ bgcolor: tokens.bgElev1, border: `1px solid ${tokens.divider}`, borderRadius: '10px', overflow: 'hidden' }}>
@@ -204,6 +261,8 @@ function TodaySessionsSection() {
 // ── HomePage ──────────────────────────────────────────────────────────────────
 
 export const HomePage = () => {
+    const [drawer, setDrawer] = useState<'teacher' | 'student' | null>(null)
+
     const { data, isLoading } = useQuery({
         queryKey: ['dashboard-overview'],
         queryFn: getDashboardOverview,
@@ -211,6 +270,9 @@ export const HomePage = () => {
 
     return (
         <AdminLayout activeNav="dashboard" crumb="Overview" title="Dashboard">
+            <TeacherDrawer open={drawer === 'teacher'} onClose={() => setDrawer(null)} />
+            <StudentDrawer open={drawer === 'student'} onClose={() => setDrawer(null)} />
+
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2, '@media (max-width: 1100px)': { gridTemplateColumns: 'repeat(2, 1fr)' } }}>
                 {STAT_CONFIG.map(({ key, label, color, icon, to }) =>
                     isLoading ? (
@@ -221,7 +283,13 @@ export const HomePage = () => {
                 )}
             </Box>
 
-            <TodaySessionsSection />
+            <Box sx={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 2, alignItems: 'start', '@media (max-width: 1100px)': { gridTemplateColumns: '1fr' } }}>
+                <TodaySessionsSection />
+                <QuickActions
+                    onCreateTeacher={() => setDrawer('teacher')}
+                    onCreateStudent={() => setDrawer('student')}
+                />
+            </Box>
         </AdminLayout>
     )
 }
