@@ -52,7 +52,7 @@ function StatCard({ label, value, color, icon, to }: StatCardProps) {
 const STAT_CONFIG = [
     { key: 'totalStudents' as const, label: 'Total students', color: tokens.indigo, icon: <PeopleOutlinedIcon sx={{ fontSize: 15 }} />, to: '/students' },
     { key: 'totalTeachers' as const, label: 'Total teachers', color: tokens.cyan, icon: <WorkOutlinedIcon sx={{ fontSize: 15 }} />, to: '/teachers' },
-    { key: 'todayTotalClasses' as const, label: 'Classes today', color: tokens.green, icon: <EventOutlinedIcon sx={{ fontSize: 15 }} /> },
+    { key: 'todayTotalClasses' as const, label: 'Classes today', color: tokens.green, icon: <EventOutlinedIcon sx={{ fontSize: 15 }}/>, to: '/attendance' },
 ]
 
 // ── Status badge ──────────────────────────────────────────────────────────────
