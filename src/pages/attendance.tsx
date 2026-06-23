@@ -165,7 +165,12 @@ function SortableCell({ label, colKey, sortCol, sortDir, onSort }: {
 
 // ── AttendancePage ────────────────────────────────────────────────────────────
 
-const todayISO = () => new Date().toISOString().split('T')[0]
+const todayISO = () => new Date().toLocaleDateString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+}).split('/').reverse().join('-');
 
 export function AttendancePage() {
     const [date, setDate] = useState(todayISO)
