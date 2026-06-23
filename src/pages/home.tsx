@@ -237,13 +237,17 @@ function TodaySessionsSection() {
                                         </Typography>
                                     </TableCell>
                                     <TableCell sx={{ py: '11px' }}>
-                                        <PersonCell name={s.teacherName} />
+                                        {s.teacherName
+                                            ? <PersonCell name={s.teacherName} />
+                                            : <Typography sx={{ fontSize: '0.8125rem', color: tokens.textDisabled }}>—</Typography>}
                                     </TableCell>
                                     <TableCell sx={{ py: '11px' }}>
-                                        <PersonCell name={s.studentName} />
+                                        {s.studentName
+                                            ? <PersonCell name={s.studentName} />
+                                            : <Typography sx={{ fontSize: '0.8125rem', color: tokens.textDisabled }}>—</Typography>}
                                     </TableCell>
                                     <TableCell sx={{ py: '11px' }}>
-                                        <Typography sx={{ fontSize: '0.8125rem', color: tokens.text }}>{s.className}</Typography>
+                                        <Typography sx={{ fontSize: '0.8125rem', color: s.className ? tokens.text : tokens.textDisabled }}>{s.className ?? '—'}</Typography>
                                     </TableCell>
                                     <TableCell sx={{ py: '11px' }}>
                                         <StatusBadge status={s.attendanceStatus} />
