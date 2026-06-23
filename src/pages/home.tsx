@@ -114,10 +114,14 @@ function TodaySessionsSection() {
     const navigate = useNavigate()
     const today = new Date().toISOString().split('T')[0]
 
-    const { data: sessions = [], isLoading } = useQuery({
+    const { data: rawSessions = [], isLoading } = useQuery({
         queryKey: ['classes-attendance', today],
         queryFn: () => getClassesAttendance(today),
     })
+
+    const sessions = [...rawSessions]
+        .sort((a, b) => b.startTime.localeCompare(a.startTime))
+        .slice(0, 15)
 
     return (
         <Box sx={{ bgcolor: tokens.bgElev1, border: `1px solid ${tokens.divider}`, borderRadius: '10px', overflow: 'hidden' }}>
@@ -125,10 +129,7 @@ function TodaySessionsSection() {
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2.5, py: '14px', borderBottom: `1px solid ${tokens.divider}` }}>
                 <Box>
                     <Typography sx={{ fontSize: '0.9375rem', fontWeight: 600, color: tokens.text }}>
-                        Classes today
-                    </Typography>
-                    <Typography sx={{ fontSize: '0.75rem', color: tokens.textSecondary, mt: '2px' }}>
-                        {isLoading ? 'Loading…' : `${sessions.length} session${sessions.length !== 1 ? 's' : ''} scheduled`}
+                        Today's sessions
                     </Typography>
                 </Box>
                 <Box

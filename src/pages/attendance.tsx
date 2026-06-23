@@ -5,6 +5,8 @@ import CheckCircleOutlineOutlinedIcon from '@mui/icons-material/CheckCircleOutli
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined'
 import HourglassEmptyOutlinedIcon from '@mui/icons-material/HourglassEmptyOutlined'
 import EventOutlinedIcon from '@mui/icons-material/EventOutlined'
+import ArrowUpwardOutlinedIcon from '@mui/icons-material/ArrowUpwardOutlined'
+import UnfoldMoreOutlinedIcon from '@mui/icons-material/UnfoldMoreOutlined'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getClassesAttendance } from '../api/client.ts'
@@ -126,6 +128,41 @@ function RowSkeleton() {
     )
 }
 
+// ── Sortable column header ────────────────────────────────────────────────────
+
+type SortDir = 'asc' | 'desc'
+
+function SortableCell({ label, colKey, sortCol, sortDir, onSort }: {
+    label: string
+    colKey: string
+    sortCol: string
+    sortDir: SortDir
+    onSort: (col: string) => void
+}) {
+    const active = sortCol === colKey
+    return (
+        <TableCell
+            onClick={() => onSort(colKey)}
+            sx={{
+                cursor: 'pointer', userSelect: 'none', fontSize: '0.6875rem', fontWeight: 600,
+                color: tokens.textDisabled, letterSpacing: '0.06em', textTransform: 'uppercase',
+                py: '10px', bgcolor: alpha(tokens.text, 0.02),
+                '&:hover .sort-icon': { opacity: 1 },
+            }}
+        >
+            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                {label}
+                <Box className="sort-icon" sx={{ display: 'flex', opacity: active ? 1 : 0.3, transition: 'opacity 0.15s' }}>
+                    {active
+                        ? <ArrowUpwardOutlinedIcon sx={{ fontSize: 12, transform: sortDir === 'desc' ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                        : <UnfoldMoreOutlinedIcon sx={{ fontSize: 12 }} />
+                    }
+                </Box>
+            </Box>
+        </TableCell>
+    )
+}
+
 // ── AttendancePage ────────────────────────────────────────────────────────────
 
 const todayISO = () => new Date().toISOString().split('T')[0]
@@ -134,6 +171,13 @@ export function AttendancePage() {
     const [date, setDate] = useState(todayISO)
     const [search, setSearch] = useState('')
     const [filter, setFilter] = useState<FilterKey>('all')
+    const [sortCol, setSortCol] = useState('time')
+    const [sortDir, setSortDir] = useState<SortDir>('asc')
+
+    const handleSort = (col: string) => {
+        if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+        else { setSortCol(col); setSortDir('asc') }
+    }
 
     const { data: sessions = [], isLoading } = useQuery({
         queryKey: ['classes-attendance', date],
@@ -160,6 +204,16 @@ export function AttendancePage() {
             )
         }
         return true
+    })
+
+    const sorted = [...filtered].sort((a, b) => {
+        let cmp = 0
+        if (sortCol === 'time')    cmp = a.startTime.localeCompare(b.startTime)
+        else if (sortCol === 'teacher') cmp = (a.teacherName ?? '').localeCompare(b.teacherName ?? '')
+        else if (sortCol === 'student') cmp = (a.studentName ?? '').localeCompare(b.studentName ?? '')
+        else if (sortCol === 'class')   cmp = (a.className ?? '').localeCompare(b.className ?? '')
+        else if (sortCol === 'status')  cmp = a.attendanceStatus.localeCompare(b.attendanceStatus)
+        return sortDir === 'asc' ? cmp : -cmp
     })
 
     const isToday = date === todayISO()
@@ -241,7 +295,7 @@ export function AttendancePage() {
 
                     <Box sx={{ flex: 1 }} />
                     <Typography sx={{ fontSize: '0.6875rem', color: tokens.textDisabled }}>
-                        {filtered.length} result{filtered.length !== 1 ? 's' : ''}
+                        {sorted.length} result{sorted.length !== 1 ? 's' : ''}
                     </Typography>
                 </Box>
 
@@ -250,17 +304,17 @@ export function AttendancePage() {
                     <Table size="small" sx={{ minWidth: 680 }}>
                         <TableHead>
                             <TableRow sx={{ '& .MuiTableCell-root': { borderColor: tokens.divider } }}>
-                                {['Time', 'Teacher', 'Student', 'Class', 'Status'].map(h => (
-                                    <TableCell key={h} sx={{ fontSize: '0.6875rem', fontWeight: 600, color: tokens.textDisabled, letterSpacing: '0.06em', textTransform: 'uppercase', py: '10px', bgcolor: alpha(tokens.text, 0.02) }}>
-                                        {h}
-                                    </TableCell>
-                                ))}
+                                <SortableCell label="Time"    colKey="time"    sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+                                <SortableCell label="Teacher" colKey="teacher" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+                                <SortableCell label="Student" colKey="student" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+                                <SortableCell label="Class"   colKey="class"   sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+                                <SortableCell label="Status"  colKey="status"  sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
                             </TableRow>
                         </TableHead>
                         <TableBody>
                             {isLoading
                                 ? Array.from({ length: 8 }, (_, i) => <RowSkeleton key={i} />)
-                                : filtered.length === 0
+                                : sorted.length === 0
                                     ? (
                                         <TableRow>
                                             <TableCell colSpan={5} sx={{ textAlign: 'center', py: 5, border: 0 }}>
@@ -270,7 +324,7 @@ export function AttendancePage() {
                                             </TableCell>
                                         </TableRow>
                                     )
-                                    : filtered.map((s: ClassAttendance) => (
+                                    : sorted.map((s: ClassAttendance) => (
                                         <TableRow
                                             key={s.classId}
                                             sx={{
