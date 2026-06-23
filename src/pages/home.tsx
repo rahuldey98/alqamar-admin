@@ -1,12 +1,15 @@
-import { alpha, Box, Skeleton, Typography } from '@mui/material'
+import { alpha, Avatar, Box, Chip, Skeleton, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material'
 import PeopleOutlinedIcon from '@mui/icons-material/PeopleOutlined'
 import WorkOutlinedIcon from '@mui/icons-material/WorkOutlined'
 import EventOutlinedIcon from '@mui/icons-material/EventOutlined'
+import ArrowForwardOutlinedIcon from '@mui/icons-material/ArrowForwardOutlined'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { getDashboardOverview } from '../api/client.ts'
+import { getDashboardOverview, getClassesAttendance } from '../api/client.ts'
+import type { ClassAttendance } from '../api/client.ts'
 import { AdminLayout } from '../components/AdminLayout.tsx'
 import { tokens } from '../theme.ts'
+import { stringToColor, initials } from '../utils/ui.ts'
 import type { ReactNode } from 'react'
 
 // ── Stat card ─────────────────────────────────────────────────────────────────
@@ -52,6 +55,151 @@ const STAT_CONFIG = [
     { key: 'todayTotalClasses' as const, label: 'Classes today', color: tokens.green, icon: <EventOutlinedIcon sx={{ fontSize: 15 }} /> },
 ]
 
+// ── Status badge ──────────────────────────────────────────────────────────────
+
+const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+    'all present':     { label: 'Present',        color: tokens.green,        bg: alpha(tokens.green, 0.12) },
+    'teacher present': { label: 'Teacher only',   color: tokens.amber,        bg: alpha(tokens.amber, 0.12) },
+    'not present':     { label: 'Not present',    color: tokens.red,          bg: alpha(tokens.red, 0.12) },
+}
+
+const FALLBACK_STATUS = { label: 'Unknown', color: tokens.textDisabled, bg: alpha(tokens.text, 0.06) }
+
+function StatusBadge({ status }: { status: string }) {
+    const cfg = STATUS_CONFIG[status] ?? FALLBACK_STATUS
+    return (
+        <Chip
+            label={cfg.label}
+            size="small"
+            sx={{
+                fontSize: '0.6875rem', fontWeight: 500, height: 20,
+                bgcolor: cfg.bg, color: cfg.color,
+                border: 'none',
+                '& .MuiChip-label': { px: '8px' },
+            }}
+        />
+    )
+}
+
+// ── Person cell ───────────────────────────────────────────────────────────────
+
+function PersonCell({ name }: { name: string }) {
+    return (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
+            <Avatar sx={{ width: 24, height: 24, fontSize: '0.625rem', fontWeight: 600, bgcolor: stringToColor(name), flexShrink: 0 }}>
+                {initials(name)}
+            </Avatar>
+            <Typography sx={{ fontSize: '0.8125rem', color: tokens.text }}>{name}</Typography>
+        </Box>
+    )
+}
+
+// ── Sessions section ──────────────────────────────────────────────────────────
+
+const TABLE_HEADERS = ['Time', 'Teacher', 'Student', 'Subject', 'Status']
+
+function RowSkeleton() {
+    return (
+        <TableRow sx={{ '& .MuiTableCell-root': { borderColor: tokens.divider } }}>
+            {[70, 140, 120, 150, 80].map((w, i) => (
+                <TableCell key={i} sx={{ py: '11px' }}>
+                    <Skeleton variant="rounded" width={w} height={14} sx={{ bgcolor: alpha(tokens.text, 0.05) }} />
+                </TableCell>
+            ))}
+        </TableRow>
+    )
+}
+
+function TodaySessionsSection() {
+    const navigate = useNavigate()
+    const today = new Date().toISOString().split('T')[0]
+
+    const { data: sessions = [], isLoading } = useQuery({
+        queryKey: ['classes-attendance', today],
+        queryFn: () => getClassesAttendance(today),
+    })
+
+    return (
+        <Box sx={{ bgcolor: tokens.bgElev1, border: `1px solid ${tokens.divider}`, borderRadius: '10px', overflow: 'hidden' }}>
+            {/* Header */}
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2.5, py: '14px', borderBottom: `1px solid ${tokens.divider}` }}>
+                <Box>
+                    <Typography sx={{ fontSize: '0.9375rem', fontWeight: 600, color: tokens.text }}>
+                        Classes today
+                    </Typography>
+                    <Typography sx={{ fontSize: '0.75rem', color: tokens.textSecondary, mt: '2px' }}>
+                        {isLoading ? 'Loading…' : `${sessions.length} session${sessions.length !== 1 ? 's' : ''} scheduled`}
+                    </Typography>
+                </Box>
+                <Box
+                    component="button"
+                    onClick={() => navigate('/attendance')}
+                    sx={{
+                        display: 'inline-flex', alignItems: 'center', gap: '5px',
+                        px: '10px', py: '6px', borderRadius: '7px',
+                        fontSize: '0.78125rem', fontWeight: 500,
+                        color: tokens.textSecondary, bgcolor: tokens.bgElev2,
+                        border: `1px solid ${tokens.divider}`, cursor: 'pointer',
+                        '&:hover': { color: tokens.text, borderColor: tokens.border },
+                        transition: 'color 0.12s, border-color 0.12s',
+                    }}
+                >
+                    View all
+                    <ArrowForwardOutlinedIcon sx={{ fontSize: 12 }} />
+                </Box>
+            </Box>
+
+            {/* Table */}
+            <Box sx={{ overflowX: 'auto' }}>
+                <Table size="small" sx={{ minWidth: 680 }}>
+                    <TableHead>
+                        <TableRow sx={{ '& .MuiTableCell-root': { borderColor: tokens.divider } }}>
+                            {TABLE_HEADERS.map(h => (
+                                <TableCell key={h} sx={{ fontSize: '0.6875rem', fontWeight: 600, color: tokens.textDisabled, letterSpacing: '0.06em', textTransform: 'uppercase', py: '10px', bgcolor: alpha(tokens.text, 0.02) }}>
+                                    {h}
+                                </TableCell>
+                            ))}
+                        </TableRow>
+                    </TableHead>
+                    <TableBody>
+                        {isLoading
+                            ? Array.from({ length: 5 }, (_, i) => <RowSkeleton key={i} />)
+                            : sessions.map((s: ClassAttendance) => (
+                                <TableRow
+                                    key={s.classId}
+                                    sx={{
+                                        '& .MuiTableCell-root': { borderColor: tokens.divider },
+                                        '&:last-child .MuiTableCell-root': { border: 0 },
+                                        '&:hover': { bgcolor: alpha(tokens.text, 0.025) },
+                                    }}
+                                >
+                                    <TableCell sx={{ py: '11px' }}>
+                                        <Typography sx={{ fontSize: '0.75rem', fontFamily: '"JetBrains Mono", monospace', color: tokens.textSecondary, whiteSpace: 'nowrap' }}>
+                                            {s.startTime}–{s.endTime}
+                                        </Typography>
+                                    </TableCell>
+                                    <TableCell sx={{ py: '11px' }}>
+                                        <PersonCell name={s.teacherName} />
+                                    </TableCell>
+                                    <TableCell sx={{ py: '11px' }}>
+                                        <PersonCell name={s.studentName} />
+                                    </TableCell>
+                                    <TableCell sx={{ py: '11px' }}>
+                                        <Typography sx={{ fontSize: '0.8125rem', color: tokens.text }}>{s.className}</Typography>
+                                    </TableCell>
+                                    <TableCell sx={{ py: '11px' }}>
+                                        <StatusBadge status={s.attendanceStatus} />
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        }
+                    </TableBody>
+                </Table>
+            </Box>
+        </Box>
+    )
+}
+
 // ── HomePage ──────────────────────────────────────────────────────────────────
 
 export const HomePage = () => {
@@ -71,6 +219,8 @@ export const HomePage = () => {
                     )
                 )}
             </Box>
+
+            <TodaySessionsSection />
         </AdminLayout>
     )
 }

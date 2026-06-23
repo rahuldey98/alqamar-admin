@@ -76,3 +76,19 @@ export const getCourses = async (): Promise<Course[]> => {
   const { data } = await api.get<ApiSuccessResponse<Course[]>>('courses')
   return data.data
 }
+
+export interface ClassAttendance {
+  classId: number
+  className: string | null
+  teacherName: string | null
+  studentName: string | null
+  date: string
+  startTime: string
+  endTime: string
+  attendanceStatus: string
+}
+
+export const getClassesAttendance = async (date: string): Promise<ClassAttendance[]> => {
+  const { data } = await api.get<ApiSuccessResponse<ClassAttendance[]>>('classes/attendance', { params: { date } })
+  return data.data
+}

@@ -4,6 +4,7 @@ import { HomePage } from './pages/home.tsx'
 import { LoginPage } from './pages/login.tsx'
 import { TeachersPage } from './pages/teachers.tsx'
 import { StudentsPage } from './pages/students.tsx'
+import { AttendancePage } from './pages/attendance.tsx'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (!getAccessToken()) {
@@ -58,6 +59,14 @@ function App() {
           element={
             <ProtectedRoute>
               <StudentsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/attendance"
+          element={
+            <ProtectedRoute>
+              <AttendancePage />
             </ProtectedRoute>
           }
         />
