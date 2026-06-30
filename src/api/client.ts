@@ -72,6 +72,10 @@ export const updateStudent = async (id: number, body: Partial<Student>): Promise
   return data.data
 }
 
+export const resetPassword = async (id: number, password: string): Promise<void> => {
+  await api.patch<ApiSuccessResponse<unknown>>(`users/${id}`, { password })
+}
+
 export const getCourses = async (): Promise<Course[]> => {
   const { data } = await api.get<ApiSuccessResponse<Course[]>>('courses')
   return data.data

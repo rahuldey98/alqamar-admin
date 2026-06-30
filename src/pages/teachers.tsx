@@ -31,10 +31,11 @@ import ArrowUpwardOutlinedIcon from '@mui/icons-material/ArrowUpwardOutlined'
 import UnfoldMoreOutlinedIcon from '@mui/icons-material/UnfoldMoreOutlined'
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined'
 import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined'
+import LockResetOutlinedIcon from '@mui/icons-material/LockResetOutlined'
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { getTeacherStudents, getTeachers, updateTeacher } from '../api/client.ts'
+import { getTeacherStudents, getTeachers, updateTeacher, resetPassword } from '../api/client.ts'
 import { AdminLayout } from '../components/AdminLayout.tsx'
 import { TeacherDrawer } from '../components/TeacherDrawer.tsx'
 import { tokens } from '../theme.ts'
@@ -425,10 +426,16 @@ function RowMenu({ teacher, onEdit }: { teacher: Teacher; onEdit: () => void }) 
     const [anchor, setAnchor] = useState<null | HTMLElement>(null)
 
     const isActive = teacher.status === 'ACTIVE'
+    const password = createDefaultPassword(teacher.name)
 
     const statusMutation = useMutation({
         mutationFn: () => updateTeacher(teacher.id, { status: isActive ? 'INACTIVE' : 'ACTIVE' }),
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['teachers'] }),
+        onSettled: () => setAnchor(null),
+    })
+
+    const resetMutation = useMutation({
+        mutationFn: () => resetPassword(teacher.id, password),
         onSettled: () => setAnchor(null),
     })
 
@@ -471,6 +478,21 @@ function RowMenu({ teacher, onEdit }: { teacher: Teacher; onEdit: () => void }) 
                 >
                     <ListItemIcon sx={{ minWidth: 'unset' }}><EditOutlinedIcon sx={{ fontSize: 15, color: tokens.textSecondary }} /></ListItemIcon>
                     <ListItemText>Edit</ListItemText>
+                </MenuItem>
+                <MenuItem
+                    onClick={() => resetMutation.mutate()}
+                    disabled={resetMutation.isPending}
+                    sx={{ fontSize: '0.8125rem', color: tokens.text, gap: 1, '&:hover': { bgcolor: tokens.bgElev2 }, '&.Mui-disabled': { opacity: 0.4 } }}
+                >
+                    <ListItemIcon sx={{ minWidth: 'unset' }}>
+                        {resetMutation.isPending
+                            ? <CircularProgress size={13} sx={{ color: tokens.textSecondary }} />
+                            : resetMutation.isSuccess
+                                ? <CheckOutlinedIcon sx={{ fontSize: 15, color: tokens.green }} />
+                                : <LockResetOutlinedIcon sx={{ fontSize: 15, color: tokens.textSecondary }} />
+                        }
+                    </ListItemIcon>
+                    <ListItemText>Reset Password</ListItemText>
                 </MenuItem>
                 <MenuItem
                     onClick={() => statusMutation.mutate()}
