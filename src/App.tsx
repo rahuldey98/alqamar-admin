@@ -5,6 +5,8 @@ import { LoginPage } from './pages/login.tsx'
 import { TeachersPage } from './pages/teachers.tsx'
 import { StudentsPage } from './pages/students.tsx'
 import { AttendancePage } from './pages/attendance.tsx'
+import { CoursesPage } from './pages/courses.tsx'
+import { FeesPage } from './pages/fees.tsx'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (!getAccessToken()) {
@@ -67,6 +69,22 @@ function App() {
           element={
             <ProtectedRoute>
               <AttendancePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/academy/courses"
+          element={
+            <ProtectedRoute>
+              <CoursesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/academy/fees"
+          element={
+            <ProtectedRoute>
+              <FeesPage />
             </ProtectedRoute>
           }
         />

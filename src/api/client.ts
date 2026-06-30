@@ -76,8 +76,24 @@ export const resetPassword = async (id: number, password: string): Promise<void>
   await api.patch<ApiSuccessResponse<unknown>>(`users/${id}`, { password })
 }
 
-export const getCourses = async (): Promise<Course[]> => {
-  const { data } = await api.get<ApiSuccessResponse<Course[]>>('courses')
+export interface CourseListItem extends Course {
+  durationMonths: number
+  status: 'ACTIVE' | 'INACTIVE'
+}
+
+export const getCourses = async (): Promise<CourseListItem[]> => {
+  const { data } = await api.get<ApiSuccessResponse<CourseListItem[]>>('courses')
+  return data.data
+}
+
+interface CreateCourseRequest {
+  title: string
+  enTitle: string
+  durationMonths: number
+}
+
+export const createCourse = async (body: CreateCourseRequest): Promise<CourseListItem> => {
+  const { data } = await api.post<ApiSuccessResponse<CourseListItem>>('courses', body)
   return data.data
 }
 

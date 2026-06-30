@@ -3,6 +3,8 @@ import DashboardOutlinedIcon from '@mui/icons-material/DashboardOutlined'
 import CalendarTodayOutlinedIcon from '@mui/icons-material/CalendarTodayOutlined'
 import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined'
 import SchoolOutlinedIcon from '@mui/icons-material/SchoolOutlined'
+import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined'
+import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined'
 import MenuOutlinedIcon from '@mui/icons-material/MenuOutlined'
 import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined'
 import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined'
@@ -30,7 +32,14 @@ const NAV_GROUPS = [
             { id: 'teachers', label: 'Teachers', to: '/teachers', icon: <BadgeOutlinedIcon sx={{ fontSize: 16 }} /> },
             { id: 'students', label: 'Students', to: '/students', icon: <SchoolOutlinedIcon sx={{ fontSize: 16 }} /> },
         ],
-    }
+    },
+    {
+        label: 'Academy',
+        items: [
+            { id: 'courses', label: 'Courses', to: '/academy/courses', icon: <MenuBookOutlinedIcon sx={{ fontSize: 16 }} /> },
+            { id: 'fees', label: 'Fees', to: '/academy/fees', icon: <PaymentsOutlinedIcon sx={{ fontSize: 16 }} /> },
+        ],
+    },
 ]
 
 // ── NavItem ───────────────────────────────────────────────────────────────────
