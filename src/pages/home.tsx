@@ -67,6 +67,7 @@ const STAT_CONFIG = [
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
     'all present':     { label: 'Present',        color: tokens.green,        bg: alpha(tokens.green, 0.12) },
     'teacher present': { label: 'Teacher only',   color: tokens.amber,        bg: alpha(tokens.amber, 0.12) },
+    'student present': { label: 'Student only',   color: tokens.amber,        bg: alpha(tokens.amber, 0.12) },
     'not present':     { label: 'Not present',    color: tokens.red,          bg: alpha(tokens.red, 0.12) },
 }
 
