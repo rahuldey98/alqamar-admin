@@ -1,4 +1,4 @@
-import { alpha, Avatar, Box, Chip, Skeleton, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material'
+import { alpha, Avatar, Box, Chip, Skeleton, Table, TableBody, TableCell, TableHead, TableRow, Typography, Tooltip } from '@mui/material'
 import PeopleOutlinedIcon from '@mui/icons-material/PeopleOutlined'
 import WorkOutlinedIcon from '@mui/icons-material/WorkOutlined'
 import EventOutlinedIcon from '@mui/icons-material/EventOutlined'
@@ -7,6 +7,7 @@ import PersonAddOutlinedIcon from '@mui/icons-material/PersonAddOutlined'
 import SchoolOutlinedIcon from '@mui/icons-material/SchoolOutlined'
 import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined'
 import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined'
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { getDashboardOverview, getClassesAttendance } from '../api/client.ts'
@@ -66,8 +67,8 @@ const STAT_CONFIG = [
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
     'all present':     { label: 'Present',        color: tokens.green,        bg: alpha(tokens.green, 0.12) },
-    'teacher present': { label: 'Teacher only',   color: tokens.amber,        bg: alpha(tokens.amber, 0.12) },
-    'student present': { label: 'Student only',   color: tokens.amber,        bg: alpha(tokens.amber, 0.12) },
+    'teacher present': { label: 'Present',        color: tokens.green,        bg: alpha(tokens.green, 0.12) },
+    'student present': { label: 'Present',        color: tokens.green,        bg: alpha(tokens.green, 0.12) },
     'not present':     { label: 'Not present',    color: tokens.red,          bg: alpha(tokens.red, 0.12) },
 }
 
@@ -75,18 +76,43 @@ const FALLBACK_STATUS = { label: 'Unknown', color: tokens.textDisabled, bg: alph
 
 function StatusBadge({ status }: { status: string }) {
     const cfg = STATUS_CONFIG[status] ?? FALLBACK_STATUS
-    return (
+    const hasDetailedStatus = status === 'teacher present' || status === 'student present'
+    
+    let tooltipText = ''
+    if (status === 'teacher present') {
+        tooltipText = 'System recorded: Teacher only joined (treated as Present)'
+    } else if (status === 'student present') {
+        tooltipText = 'System recorded: Student only joined (treated as Present)'
+    }
+
+    const chip = (
         <Chip
-            label={cfg.label}
+            label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    {cfg.label}
+                    {hasDetailedStatus && <InfoOutlinedIcon sx={{ fontSize: 11, opacity: 0.8 }} />}
+                </Box>
+            }
             size="small"
             sx={{
                 fontSize: '0.6875rem', fontWeight: 500, height: 20,
                 bgcolor: cfg.bg, color: cfg.color,
                 border: 'none',
+                cursor: hasDetailedStatus ? 'help' : 'default',
                 '& .MuiChip-label': { px: '8px' },
             }}
         />
     )
+
+    if (hasDetailedStatus && tooltipText) {
+        return (
+            <Tooltip title={tooltipText} arrow placement="top">
+                {chip}
+            </Tooltip>
+        )
+    }
+
+    return chip
 }
 
 // ── Person cell ───────────────────────────────────────────────────────────────

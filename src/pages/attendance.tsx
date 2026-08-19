@@ -1,12 +1,13 @@
-import { alpha, Avatar, Box, InputBase, Skeleton, Table, TableBody, TableCell, TableHead, TableRow, Typography, Chip } from '@mui/material'
+import { alpha, Avatar, Box, InputBase, Skeleton, Table, TableBody, TableCell, TableHead, TableRow, Typography, Chip, Tooltip } from '@mui/material'
 import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined'
 import CalendarTodayOutlinedIcon from '@mui/icons-material/CalendarTodayOutlined'
 import CheckCircleOutlineOutlinedIcon from '@mui/icons-material/CheckCircleOutlineOutlined'
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined'
-import HourglassEmptyOutlinedIcon from '@mui/icons-material/HourglassEmptyOutlined'
 import EventOutlinedIcon from '@mui/icons-material/EventOutlined'
 import ArrowUpwardOutlinedIcon from '@mui/icons-material/ArrowUpwardOutlined'
 import UnfoldMoreOutlinedIcon from '@mui/icons-material/UnfoldMoreOutlined'
+import TrendingUpOutlinedIcon from '@mui/icons-material/TrendingUpOutlined'
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getClassesAttendance } from '../api/client.ts'
@@ -20,25 +21,58 @@ import type { ReactNode } from 'react'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
     'all present':     { label: 'Present',      color: tokens.green,        bg: alpha(tokens.green, 0.12) },
-    'teacher present': { label: 'Teacher only', color: tokens.amber,        bg: alpha(tokens.amber, 0.12) },
+    'teacher present': { label: 'Present',      color: tokens.green,        bg: alpha(tokens.green, 0.12) },
+    'student present': { label: 'Present',      color: tokens.green,        bg: alpha(tokens.green, 0.12) },
     'not present':     { label: 'Not present',  color: tokens.red,          bg: alpha(tokens.red, 0.12) },
 }
 const FALLBACK_STATUS = { label: 'Unknown', color: tokens.textDisabled, bg: alpha(tokens.text, 0.06) }
 
+const STATUS_ORDER: Record<string, number> = {
+    'all present': 1,
+    'teacher present': 2,
+    'student present': 2,
+    'not present': 3,
+}
+
 function StatusBadge({ status }: { status: string }) {
     const cfg = STATUS_CONFIG[status] ?? FALLBACK_STATUS
-    return (
+    const hasDetailedStatus = status === 'teacher present' || status === 'student present'
+    
+    let tooltipText = ''
+    if (status === 'teacher present') {
+        tooltipText = 'System recorded: Teacher only joined (treated as Present)'
+    } else if (status === 'student present') {
+        tooltipText = 'System recorded: Student only joined (treated as Present)'
+    }
+
+    const chip = (
         <Chip
-            label={cfg.label}
+            label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    {cfg.label}
+                    {hasDetailedStatus && <InfoOutlinedIcon sx={{ fontSize: 11, opacity: 0.8 }} />}
+                </Box>
+            }
             size="small"
             sx={{
                 fontSize: '0.6875rem', fontWeight: 500, height: 20,
                 bgcolor: cfg.bg, color: cfg.color,
                 border: 'none',
+                cursor: hasDetailedStatus ? 'help' : 'default',
                 '& .MuiChip-label': { px: '8px' },
             }}
         />
     )
+
+    if (hasDetailedStatus && tooltipText) {
+        return (
+            <Tooltip title={tooltipText} arrow placement="top">
+                {chip}
+            </Tooltip>
+        )
+    }
+
+    return chip
 }
 
 // ── Summary stat card ─────────────────────────────────────────────────────────
@@ -70,13 +104,12 @@ function SummaryCard({ label, value, color, icon }: SummaryCardProps) {
 
 // ── Filter chip ───────────────────────────────────────────────────────────────
 
-type FilterKey = 'all' | 'all present' | 'teacher present' | 'not present'
+type FilterKey = 'all' | 'present' | 'absent'
 
 const FILTERS: { key: FilterKey; label: string }[] = [
-    { key: 'all',             label: 'All' },
-    { key: 'all present',     label: 'Present' },
-    { key: 'teacher present', label: 'Teacher only' },
-    { key: 'not present',     label: 'Not present' },
+    { key: 'all',     label: 'All' },
+    { key: 'present', label: 'Present' },
+    { key: 'absent',  label: 'Not present' },
 ]
 
 function FilterChip({ label, count, active, onClick }: { label: string; count: number; active: boolean; onClick: () => void }) {
@@ -191,15 +224,24 @@ export function AttendancePage() {
 
     // Counts per status
     const counts: Record<FilterKey, number> = {
-        'all':             sessions.length,
-        'all present':     sessions.filter(s => s.attendanceStatus === 'all present').length,
-        'teacher present': sessions.filter(s => s.attendanceStatus === 'teacher present').length,
-        'not present':     sessions.filter(s => s.attendanceStatus === 'not present').length,
+        all:             sessions.length,
+        present:         sessions.filter(s => s.attendanceStatus === 'all present' || s.attendanceStatus === 'teacher present' || s.attendanceStatus === 'student present').length,
+        absent:          sessions.filter(s => s.attendanceStatus === 'not present').length,
     }
 
     // Apply filter + search
     const filtered = sessions.filter((s: ClassAttendance) => {
-        if (filter !== 'all' && s.attendanceStatus !== filter) return false
+        if (filter !== 'all') {
+            if (filter === 'present') {
+                if (s.attendanceStatus !== 'all present' && s.attendanceStatus !== 'teacher present' && s.attendanceStatus !== 'student present') {
+                    return false
+                }
+            } else if (filter === 'absent') {
+                if (s.attendanceStatus !== 'not present') {
+                    return false
+                }
+            }
+        }
         if (search) {
             const q = search.toLowerCase()
             return (
@@ -217,7 +259,15 @@ export function AttendancePage() {
         else if (sortCol === 'teacher') cmp = (a.teacherName ?? '').localeCompare(b.teacherName ?? '')
         else if (sortCol === 'student') cmp = (a.studentName ?? '').localeCompare(b.studentName ?? '')
         else if (sortCol === 'class')   cmp = (a.className ?? '').localeCompare(b.className ?? '')
-        else if (sortCol === 'status')  cmp = a.attendanceStatus.localeCompare(b.attendanceStatus)
+        else if (sortCol === 'status') {
+            const orderA = STATUS_ORDER[a.attendanceStatus] ?? 4
+            const orderB = STATUS_ORDER[b.attendanceStatus] ?? 4
+            if (orderA !== orderB) {
+                cmp = orderA - orderB
+            } else {
+                cmp = a.attendanceStatus.localeCompare(b.attendanceStatus)
+            }
+        }
         return sortDir === 'asc' ? cmp : -cmp
     })
 
@@ -234,9 +284,9 @@ export function AttendancePage() {
                 ) : (
                     <>
                         <SummaryCard label="Total sessions" value={counts.all} color={tokens.indigo} icon={<EventOutlinedIcon sx={{ fontSize: 15 }} />} />
-                        <SummaryCard label="Present" value={counts['all present']} color={tokens.green} icon={<CheckCircleOutlineOutlinedIcon sx={{ fontSize: 15 }} />} />
-                        <SummaryCard label="Teacher only" value={counts['teacher present']} color={tokens.amber} icon={<HourglassEmptyOutlinedIcon sx={{ fontSize: 15 }} />} />
-                        <SummaryCard label="Not present" value={counts['not present']} color={tokens.red} icon={<CancelOutlinedIcon sx={{ fontSize: 15 }} />} />
+                        <SummaryCard label="Present" value={counts.present} color={tokens.green} icon={<CheckCircleOutlineOutlinedIcon sx={{ fontSize: 15 }} />} />
+                        <SummaryCard label="Not present" value={counts.absent} color={tokens.red} icon={<CancelOutlinedIcon sx={{ fontSize: 15 }} />} />
+                        <SummaryCard label="Attendance rate" value={counts.all > 0 ? `${Math.round((counts.present / counts.all) * 100)}%` : '0%'} color={tokens.cyan} icon={<TrendingUpOutlinedIcon sx={{ fontSize: 15 }} />} />
                     </>
                 )}
             </Box>
