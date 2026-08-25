@@ -2,7 +2,6 @@ import { alpha, Avatar, Box, InputBase, Skeleton, Table, TableBody, TableCell, T
 import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined'
 import CalendarTodayOutlinedIcon from '@mui/icons-material/CalendarTodayOutlined'
 import CheckCircleOutlineOutlinedIcon from '@mui/icons-material/CheckCircleOutlineOutlined'
-import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined'
 import HourglassEmptyOutlinedIcon from '@mui/icons-material/HourglassEmptyOutlined'
 import EventOutlinedIcon from '@mui/icons-material/EventOutlined'
 import ArrowUpwardOutlinedIcon from '@mui/icons-material/ArrowUpwardOutlined'
@@ -21,8 +20,14 @@ import type { ReactNode } from 'react'
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
     'all present':     { label: 'Present',      color: tokens.green,        bg: alpha(tokens.green, 0.12) },
     'teacher present': { label: 'Teacher only', color: tokens.amber,        bg: alpha(tokens.amber, 0.12) },
-    'student present': { label: 'Student only',   color: tokens.amber,        bg: alpha(tokens.amber, 0.12) },
+    'student present': { label: 'Student only', color: tokens.cyan,         bg: alpha(tokens.cyan, 0.12) },
     'not present':     { label: 'Not present',  color: tokens.red,          bg: alpha(tokens.red, 0.12) },
+}
+const STATUS_ORDER: Record<string, number> = {
+    'all present': 1,
+    'teacher present': 2,
+    'student present': 3,
+    'not present': 4,
 }
 const FALLBACK_STATUS = { label: 'Unknown', color: tokens.textDisabled, bg: alpha(tokens.text, 0.06) }
 
@@ -71,12 +76,13 @@ function SummaryCard({ label, value, color, icon }: SummaryCardProps) {
 
 // ── Filter chip ───────────────────────────────────────────────────────────────
 
-type FilterKey = 'all' | 'all present' | 'teacher present' | 'not present'
+type FilterKey = 'all' | 'all present' | 'teacher present' | 'student present' | 'not present'
 
 const FILTERS: { key: FilterKey; label: string }[] = [
     { key: 'all',             label: 'All' },
     { key: 'all present',     label: 'Present' },
     { key: 'teacher present', label: 'Teacher only' },
+    { key: 'student present', label: 'Student only' },
     { key: 'not present',     label: 'Not present' },
 ]
 
@@ -195,6 +201,7 @@ export function AttendancePage() {
         'all':             sessions.length,
         'all present':     sessions.filter(s => s.attendanceStatus === 'all present').length,
         'teacher present': sessions.filter(s => s.attendanceStatus === 'teacher present').length,
+        'student present': sessions.filter(s => s.attendanceStatus === 'student present').length,
         'not present':     sessions.filter(s => s.attendanceStatus === 'not present').length,
     }
 
@@ -218,7 +225,11 @@ export function AttendancePage() {
         else if (sortCol === 'teacher') cmp = (a.teacherName ?? '').localeCompare(b.teacherName ?? '')
         else if (sortCol === 'student') cmp = (a.studentName ?? '').localeCompare(b.studentName ?? '')
         else if (sortCol === 'class')   cmp = (a.className ?? '').localeCompare(b.className ?? '')
-        else if (sortCol === 'status')  cmp = a.attendanceStatus.localeCompare(b.attendanceStatus)
+        else if (sortCol === 'status') {
+            const rankA = STATUS_ORDER[a.attendanceStatus] ?? 99
+            const rankB = STATUS_ORDER[b.attendanceStatus] ?? 99
+            cmp = rankA - rankB
+        }
         return sortDir === 'asc' ? cmp : -cmp
     })
 
@@ -237,7 +248,7 @@ export function AttendancePage() {
                         <SummaryCard label="Total sessions" value={counts.all} color={tokens.indigo} icon={<EventOutlinedIcon sx={{ fontSize: 15 }} />} />
                         <SummaryCard label="Present" value={counts['all present']} color={tokens.green} icon={<CheckCircleOutlineOutlinedIcon sx={{ fontSize: 15 }} />} />
                         <SummaryCard label="Teacher only" value={counts['teacher present']} color={tokens.amber} icon={<HourglassEmptyOutlinedIcon sx={{ fontSize: 15 }} />} />
-                        <SummaryCard label="Not present" value={counts['not present']} color={tokens.red} icon={<CancelOutlinedIcon sx={{ fontSize: 15 }} />} />
+                        <SummaryCard label="Student only" value={counts['student present']} color={tokens.cyan} icon={<HourglassEmptyOutlinedIcon sx={{ fontSize: 15 }} />} />
                     </>
                 )}
             </Box>
