@@ -97,18 +97,102 @@ export const createCourse = async (body: CreateCourseRequest): Promise<CourseLis
   return data.data
 }
 
-export interface ClassAttendance {
-  classId: number
-  className: string | null
-  teacherName: string | null
-  studentName: string | null
+// ── Daily Ad-Hoc Classes (class_v2) ──────────────────────────────────────────
+
+export const UserRole = {
+  ADMIN: 'ADMIN',
+  TEACHER: 'TEACHER',
+  STUDENT: 'STUDENT',
+} as const
+export type UserRole = (typeof UserRole)[keyof typeof UserRole]
+
+export const ClassAttendanceStatus = {
+  PENDING: 'PENDING',
+  TEACHER_PRESENT: 'TEACHER_PRESENT',
+  STUDENT_PRESENT: 'STUDENT_PRESENT',
+  ALL_PRESENT: 'ALL_PRESENT',
+  ABSENT: 'ABSENT',
+} as const
+export type ClassAttendanceStatus = (typeof ClassAttendanceStatus)[keyof typeof ClassAttendanceStatus]
+
+export interface UserPublicProfile {
+  id: number
+  name: string
+  phone: string
+  email?: string | null
+  role: UserRole
+  gender?: 'MALE' | 'FEMALE' | null
+  meetLink?: string | null
+}
+
+export interface ClassV2Item {
+  id: number
   date: string
   startTime: string
   endTime: string
-  attendanceStatus: string
+  isOngoing?: boolean
+  meetLink?: string | null
+  teacher: {
+    id: number
+    name: string
+    phone?: string
+  }
+  student: {
+    id: number
+    name: string
+    phone?: string
+    course?: string | null
+  }
+  attendance: {
+    status: ClassAttendanceStatus
+    teacherAttended: boolean
+    studentAttended: boolean
+    teacherJoinedAt: string | null
+    studentJoinedAt: string | null
+  }
 }
 
-export const getClassesAttendance = async (date: string): Promise<ClassAttendance[]> => {
-  const { data } = await api.get<ApiSuccessResponse<ClassAttendance[]>>('classes/attendance', { params: { date } })
+export interface AttendancePersonRecord {
+  id: number
+  name: string
+  attended: boolean
+  joinedAt: string | null
+}
+
+export interface AttendanceClassRecord {
+  classId: number
+  courseTitle: string | null
+  startTime: string
+  endTime: string
+  attendanceStatus: ClassAttendanceStatus | string
+  teacher: AttendancePersonRecord
+  student: AttendancePersonRecord
+}
+
+export interface AttendanceByDateResponse {
+  date: string
+  timezone: string
+  totalClasses: number
+  classes: AttendanceClassRecord[]
+}
+
+// Backwards compatibility alias
+export type ClassAttendance = AttendanceClassRecord
+
+export const getAttendanceRecords = async (date?: string): Promise<AttendanceByDateResponse> => {
+  const { data } = await api.get<ApiSuccessResponse<AttendanceByDateResponse>>('classes-v2/attendance', {
+    params: date ? { date } : undefined,
+  })
   return data.data
 }
+
+export const getClassesAttendance = async (date?: string): Promise<AttendanceClassRecord[]> => {
+  const res = await getAttendanceRecords(date)
+  return res?.classes ?? []
+}
+
+export const getActiveUpcomingClasses = async (): Promise<ClassV2Item[]> => {
+  const { data } = await api.get<ApiSuccessResponse<ClassV2Item[]>>('classes-v2')
+  return data.data
+}
+

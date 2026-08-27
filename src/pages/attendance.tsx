@@ -6,10 +6,12 @@ import HourglassEmptyOutlinedIcon from '@mui/icons-material/HourglassEmptyOutlin
 import EventOutlinedIcon from '@mui/icons-material/EventOutlined'
 import ArrowUpwardOutlinedIcon from '@mui/icons-material/ArrowUpwardOutlined'
 import UnfoldMoreOutlinedIcon from '@mui/icons-material/UnfoldMoreOutlined'
+import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined'
+import RefreshOutlinedIcon from '@mui/icons-material/RefreshOutlined'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { getClassesAttendance } from '../api/client.ts'
-import type { ClassAttendance } from '../api/client.ts'
+import { getAttendanceRecords, ClassAttendanceStatus } from '../api/client.ts'
+import type { AttendanceClassRecord } from '../api/client.ts'
 import { AdminLayout } from '../components/AdminLayout.tsx'
 import { tokens } from '../theme.ts'
 import { stringToColor, initials } from '../utils/ui.ts'
@@ -17,22 +19,34 @@ import type { ReactNode } from 'react'
 
 // ── Status config ─────────────────────────────────────────────────────────────
 
+function normalizeStatus(status: string | null | undefined): string {
+    if (!status) return ''
+    const upper = status.toUpperCase().replace(/\s+/g, '_')
+    if (upper === 'NOT_PRESENT') return ClassAttendanceStatus.ABSENT
+    return upper
+}
+
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-    'all present':     { label: 'Present',      color: tokens.green,        bg: alpha(tokens.green, 0.12) },
-    'teacher present': { label: 'Teacher only', color: tokens.amber,        bg: alpha(tokens.amber, 0.12) },
-    'student present': { label: 'Student only', color: tokens.cyan,         bg: alpha(tokens.cyan, 0.12) },
-    'not present':     { label: 'Not present',  color: tokens.red,          bg: alpha(tokens.red, 0.12) },
+    [ClassAttendanceStatus.ALL_PRESENT]:     { label: 'Present',      color: tokens.green,        bg: alpha(tokens.green, 0.12) },
+    [ClassAttendanceStatus.TEACHER_PRESENT]: { label: 'Teacher only', color: tokens.amber,        bg: alpha(tokens.amber, 0.12) },
+    [ClassAttendanceStatus.STUDENT_PRESENT]: { label: 'Student only', color: tokens.cyan,         bg: alpha(tokens.cyan, 0.12) },
+    [ClassAttendanceStatus.PENDING]:         { label: 'Pending',      color: tokens.textSecondary,bg: alpha(tokens.text, 0.08) },
+    [ClassAttendanceStatus.ABSENT]:          { label: 'Absent',       color: tokens.red,          bg: alpha(tokens.red, 0.12) },
 }
+
 const STATUS_ORDER: Record<string, number> = {
-    'all present': 1,
-    'teacher present': 2,
-    'student present': 3,
-    'not present': 4,
+    [ClassAttendanceStatus.ALL_PRESENT]: 1,
+    [ClassAttendanceStatus.TEACHER_PRESENT]: 2,
+    [ClassAttendanceStatus.STUDENT_PRESENT]: 3,
+    [ClassAttendanceStatus.PENDING]: 4,
+    [ClassAttendanceStatus.ABSENT]: 5,
 }
+
 const FALLBACK_STATUS = { label: 'Unknown', color: tokens.textDisabled, bg: alpha(tokens.text, 0.06) }
 
 function StatusBadge({ status }: { status: string }) {
-    const cfg = STATUS_CONFIG[status] ?? FALLBACK_STATUS
+    const key = normalizeStatus(status)
+    const cfg = STATUS_CONFIG[key] ?? FALLBACK_STATUS
     return (
         <Chip
             label={cfg.label}
@@ -76,14 +90,15 @@ function SummaryCard({ label, value, color, icon }: SummaryCardProps) {
 
 // ── Filter chip ───────────────────────────────────────────────────────────────
 
-type FilterKey = 'all' | 'all present' | 'teacher present' | 'student present' | 'not present'
+type FilterKey = 'all' | ClassAttendanceStatus
 
 const FILTERS: { key: FilterKey; label: string }[] = [
-    { key: 'all',             label: 'All' },
-    { key: 'all present',     label: 'Present' },
-    { key: 'teacher present', label: 'Teacher only' },
-    { key: 'student present', label: 'Student only' },
-    { key: 'not present',     label: 'Not present' },
+    { key: 'all',                                label: 'All' },
+    { key: ClassAttendanceStatus.ALL_PRESENT,     label: 'Present' },
+    { key: ClassAttendanceStatus.TEACHER_PRESENT, label: 'Teacher only' },
+    { key: ClassAttendanceStatus.STUDENT_PRESENT, label: 'Student only' },
+    { key: ClassAttendanceStatus.PENDING,         label: 'Pending' },
+    { key: ClassAttendanceStatus.ABSENT,          label: 'Absent' },
 ]
 
 function FilterChip({ label, count, active, onClick }: { label: string; count: number; active: boolean; onClick: () => void }) {
@@ -109,7 +124,7 @@ function FilterChip({ label, count, active, onClick }: { label: string; count: n
 
 // ── Person cell ───────────────────────────────────────────────────────────────
 
-function PersonCell({ name }: { name: string | null }) {
+function PersonCell({ name }: { name: string | null | undefined }) {
     if (!name) return <Typography sx={{ fontSize: '0.8125rem', color: tokens.textDisabled }}>—</Typography>
     return (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
@@ -172,12 +187,12 @@ function SortableCell({ label, colKey, sortCol, sortDir, onSort }: {
 
 // ── AttendancePage ────────────────────────────────────────────────────────────
 
-const todayISO = () => new Date().toLocaleDateString('en-IN', {
+const todayISO = () => new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Kolkata',
     year: 'numeric',
     month: '2-digit',
-    day: '2-digit'
-}).split('/').reverse().join('-');
+    day: '2-digit',
+}).format(new Date())
 
 export function AttendancePage() {
     const [date, setDate] = useState(todayISO)
@@ -191,29 +206,33 @@ export function AttendancePage() {
         else { setSortCol(col); setSortDir('asc') }
     }
 
-    const { data: sessions = [], isLoading } = useQuery({
-        queryKey: ['classes-attendance', date],
-        queryFn: () => getClassesAttendance(date),
+    const { data: attendanceData, isLoading, isError, error, refetch } = useQuery({
+        queryKey: ['classes-attendance-v2', date],
+        queryFn: () => getAttendanceRecords(date),
     })
+
+    const sessions = attendanceData?.classes ?? []
 
     // Counts per status
     const counts: Record<FilterKey, number> = {
-        'all':             sessions.length,
-        'all present':     sessions.filter(s => s.attendanceStatus === 'all present').length,
-        'teacher present': sessions.filter(s => s.attendanceStatus === 'teacher present').length,
-        'student present': sessions.filter(s => s.attendanceStatus === 'student present').length,
-        'not present':     sessions.filter(s => s.attendanceStatus === 'not present').length,
+        'all':                                attendanceData?.totalClasses ?? sessions.length,
+        [ClassAttendanceStatus.ALL_PRESENT]:     sessions.filter(s => normalizeStatus(s.attendanceStatus) === ClassAttendanceStatus.ALL_PRESENT).length,
+        [ClassAttendanceStatus.TEACHER_PRESENT]: sessions.filter(s => normalizeStatus(s.attendanceStatus) === ClassAttendanceStatus.TEACHER_PRESENT).length,
+        [ClassAttendanceStatus.STUDENT_PRESENT]: sessions.filter(s => normalizeStatus(s.attendanceStatus) === ClassAttendanceStatus.STUDENT_PRESENT).length,
+        [ClassAttendanceStatus.PENDING]:         sessions.filter(s => normalizeStatus(s.attendanceStatus) === ClassAttendanceStatus.PENDING).length,
+        [ClassAttendanceStatus.ABSENT]:          sessions.filter(s => normalizeStatus(s.attendanceStatus) === ClassAttendanceStatus.ABSENT).length,
     }
 
     // Apply filter + search
-    const filtered = sessions.filter((s: ClassAttendance) => {
-        if (filter !== 'all' && s.attendanceStatus !== filter) return false
+    const filtered = sessions.filter((s: AttendanceClassRecord) => {
+        const normStatus = normalizeStatus(s.attendanceStatus)
+        if (filter !== 'all' && normStatus !== filter) return false
         if (search) {
             const q = search.toLowerCase()
             return (
-                (s.teacherName?.toLowerCase().includes(q) ?? false) ||
-                (s.studentName?.toLowerCase().includes(q) ?? false) ||
-                (s.className?.toLowerCase().includes(q) ?? false)
+                (s.teacher?.name?.toLowerCase().includes(q) ?? false) ||
+                (s.student?.name?.toLowerCase().includes(q) ?? false) ||
+                (s.courseTitle?.toLowerCase().includes(q) ?? false)
             )
         }
         return true
@@ -221,13 +240,13 @@ export function AttendancePage() {
 
     const sorted = [...filtered].sort((a, b) => {
         let cmp = 0
-        if (sortCol === 'time')    cmp = a.startTime.localeCompare(b.startTime)
-        else if (sortCol === 'teacher') cmp = (a.teacherName ?? '').localeCompare(b.teacherName ?? '')
-        else if (sortCol === 'student') cmp = (a.studentName ?? '').localeCompare(b.studentName ?? '')
-        else if (sortCol === 'class')   cmp = (a.className ?? '').localeCompare(b.className ?? '')
+        if (sortCol === 'time')    cmp = (a.startTime ?? '').localeCompare(b.startTime ?? '')
+        else if (sortCol === 'teacher') cmp = (a.teacher?.name ?? '').localeCompare(b.teacher?.name ?? '')
+        else if (sortCol === 'student') cmp = (a.student?.name ?? '').localeCompare(b.student?.name ?? '')
+        else if (sortCol === 'class')   cmp = (a.courseTitle ?? '').localeCompare(b.courseTitle ?? '')
         else if (sortCol === 'status') {
-            const rankA = STATUS_ORDER[a.attendanceStatus] ?? 99
-            const rankB = STATUS_ORDER[b.attendanceStatus] ?? 99
+            const rankA = STATUS_ORDER[normalizeStatus(a.attendanceStatus)] ?? 99
+            const rankB = STATUS_ORDER[normalizeStatus(b.attendanceStatus)] ?? 99
             cmp = rankA - rankB
         }
         return sortDir === 'asc' ? cmp : -cmp
@@ -245,10 +264,10 @@ export function AttendancePage() {
                     ))
                 ) : (
                     <>
-                        <SummaryCard label="Total sessions" value={counts.all} color={tokens.indigo} icon={<EventOutlinedIcon sx={{ fontSize: 15 }} />} />
-                        <SummaryCard label="Present" value={counts['all present']} color={tokens.green} icon={<CheckCircleOutlineOutlinedIcon sx={{ fontSize: 15 }} />} />
-                        <SummaryCard label="Teacher only" value={counts['teacher present']} color={tokens.amber} icon={<HourglassEmptyOutlinedIcon sx={{ fontSize: 15 }} />} />
-                        <SummaryCard label="Student only" value={counts['student present']} color={tokens.cyan} icon={<HourglassEmptyOutlinedIcon sx={{ fontSize: 15 }} />} />
+                        <SummaryCard label="Total sessions" value={attendanceData?.totalClasses ?? sessions.length} color={tokens.indigo} icon={<EventOutlinedIcon sx={{ fontSize: 15 }} />} />
+                        <SummaryCard label="Present" value={counts[ClassAttendanceStatus.ALL_PRESENT]} color={tokens.green} icon={<CheckCircleOutlineOutlinedIcon sx={{ fontSize: 15 }} />} />
+                        <SummaryCard label="Teacher only" value={counts[ClassAttendanceStatus.TEACHER_PRESENT]} color={tokens.amber} icon={<HourglassEmptyOutlinedIcon sx={{ fontSize: 15 }} />} />
+                        <SummaryCard label="Student only" value={counts[ClassAttendanceStatus.STUDENT_PRESENT]} color={tokens.cyan} icon={<HourglassEmptyOutlinedIcon sx={{ fontSize: 15 }} />} />
                     </>
                 )}
             </Box>
@@ -329,49 +348,78 @@ export function AttendancePage() {
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {isLoading
-                                ? Array.from({ length: 8 }, (_, i) => <RowSkeleton key={i} />)
-                                : sorted.length === 0
-                                    ? (
-                                        <TableRow>
-                                            <TableCell colSpan={5} sx={{ textAlign: 'center', py: 5, border: 0 }}>
-                                                <Typography sx={{ color: tokens.textDisabled, fontSize: '0.875rem' }}>
-                                                    {sessions.length === 0 ? 'No sessions found for this date.' : 'No sessions match your filters.'}
-                                                </Typography>
-                                            </TableCell>
-                                        </TableRow>
-                                    )
-                                    : sorted.map((s: ClassAttendance) => (
-                                        <TableRow
-                                            key={s.classId}
-                                            sx={{
-                                                '& .MuiTableCell-root': { borderColor: tokens.divider },
-                                                '&:last-child .MuiTableCell-root': { border: 0 },
-                                                '&:hover': { bgcolor: alpha(tokens.text, 0.025) },
-                                            }}
-                                        >
-                                            <TableCell sx={{ py: '11px' }}>
-                                                <Typography sx={{ fontSize: '0.75rem', fontFamily: '"JetBrains Mono", monospace', color: tokens.textSecondary, whiteSpace: 'nowrap' }}>
-                                                    {s.startTime}–{s.endTime}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell sx={{ py: '11px' }}>
-                                                <PersonCell name={s.teacherName} />
-                                            </TableCell>
-                                            <TableCell sx={{ py: '11px' }}>
-                                                <PersonCell name={s.studentName} />
-                                            </TableCell>
-                                            <TableCell sx={{ py: '11px' }}>
-                                                <Typography sx={{ fontSize: '0.8125rem', color: s.className ? tokens.text : tokens.textDisabled }}>
-                                                    {s.className ?? '—'}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell sx={{ py: '11px' }}>
-                                                <StatusBadge status={s.attendanceStatus} />
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
-                            }
+                            {isLoading ? (
+                                Array.from({ length: 8 }, (_, i) => <RowSkeleton key={i} />)
+                            ) : isError ? (
+                                <TableRow>
+                                    <TableCell colSpan={5} sx={{ textAlign: 'center', py: 6, border: 0 }}>
+                                        <Box sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                                            <ErrorOutlineOutlinedIcon sx={{ color: tokens.red, fontSize: 32 }} />
+                                            <Typography sx={{ color: tokens.red, fontSize: '0.875rem', fontWeight: 500 }}>
+                                                Failed to load attendance records
+                                            </Typography>
+                                            <Typography sx={{ color: tokens.textSecondary, fontSize: '0.75rem', maxWidth: 400 }}>
+                                                {error instanceof Error ? error.message : 'An unexpected error occurred while fetching records.'}
+                                            </Typography>
+                                            <Box
+                                                component="button"
+                                                onClick={() => refetch()}
+                                                sx={{
+                                                    mt: 1, px: '14px', py: '6px', borderRadius: '7px',
+                                                    display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                                    fontSize: '0.75rem', fontWeight: 500,
+                                                    bgcolor: tokens.bgElev2, color: tokens.text,
+                                                    border: `1px solid ${tokens.divider}`, cursor: 'pointer',
+                                                    transition: 'border-color 0.15s, background 0.15s',
+                                                    '&:hover': { borderColor: tokens.border, bgcolor: alpha(tokens.text, 0.06) },
+                                                }}
+                                            >
+                                                <RefreshOutlinedIcon sx={{ fontSize: 14 }} />
+                                                Retry
+                                            </Box>
+                                        </Box>
+                                    </TableCell>
+                                </TableRow>
+                            ) : sorted.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={5} sx={{ textAlign: 'center', py: 5, border: 0 }}>
+                                        <Typography sx={{ color: tokens.textDisabled, fontSize: '0.875rem' }}>
+                                            {sessions.length === 0 ? 'No sessions found for this date.' : 'No sessions match your filters.'}
+                                        </Typography>
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                sorted.map((s: AttendanceClassRecord) => (
+                                    <TableRow
+                                        key={s.classId}
+                                        sx={{
+                                            '& .MuiTableCell-root': { borderColor: tokens.divider },
+                                            '&:last-child .MuiTableCell-root': { border: 0 },
+                                            '&:hover': { bgcolor: alpha(tokens.text, 0.025) },
+                                        }}
+                                    >
+                                        <TableCell sx={{ py: '11px' }}>
+                                            <Typography sx={{ fontSize: '0.75rem', fontFamily: '"JetBrains Mono", monospace', color: tokens.textSecondary, whiteSpace: 'nowrap' }}>
+                                                {s.startTime}–{s.endTime}
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell sx={{ py: '11px' }}>
+                                            <PersonCell name={s.teacher?.name} />
+                                        </TableCell>
+                                        <TableCell sx={{ py: '11px' }}>
+                                            <PersonCell name={s.student?.name} />
+                                        </TableCell>
+                                        <TableCell sx={{ py: '11px' }}>
+                                            <Typography sx={{ fontSize: '0.8125rem', color: s.courseTitle ? tokens.text : tokens.textDisabled }}>
+                                                {s.courseTitle ?? '—'}
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell sx={{ py: '11px' }}>
+                                            <StatusBadge status={s.attendanceStatus} />
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            )}
                         </TableBody>
                     </Table>
                 </Box>
@@ -379,3 +427,4 @@ export function AttendancePage() {
         </AdminLayout>
     )
 }
+

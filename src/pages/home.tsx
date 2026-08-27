@@ -7,10 +7,12 @@ import PersonAddOutlinedIcon from '@mui/icons-material/PersonAddOutlined'
 import SchoolOutlinedIcon from '@mui/icons-material/SchoolOutlined'
 import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined'
 import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined'
+import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined'
+import RefreshOutlinedIcon from '@mui/icons-material/RefreshOutlined'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { getDashboardOverview, getClassesAttendance } from '../api/client.ts'
-import type { ClassAttendance } from '../api/client.ts'
+import { getDashboardOverview, getAttendanceRecords, ClassAttendanceStatus } from '../api/client.ts'
+import type { AttendanceClassRecord } from '../api/client.ts'
 import { AdminLayout } from '../components/AdminLayout.tsx'
 import { TeacherDrawer } from '../components/TeacherDrawer.tsx'
 import { StudentDrawer } from '../components/StudentDrawer.tsx'
@@ -64,17 +66,26 @@ const STAT_CONFIG = [
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 
+function normalizeStatus(status: string | null | undefined): string {
+    if (!status) return ''
+    const upper = status.toUpperCase().replace(/\s+/g, '_')
+    if (upper === 'NOT_PRESENT') return ClassAttendanceStatus.ABSENT
+    return upper
+}
+
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-    'all present':     { label: 'Present',        color: tokens.green,        bg: alpha(tokens.green, 0.12) },
-    'teacher present': { label: 'Teacher only',   color: tokens.amber,        bg: alpha(tokens.amber, 0.12) },
-    'student present': { label: 'Student only',   color: tokens.cyan,         bg: alpha(tokens.cyan, 0.12) },
-    'not present':     { label: 'Not present',    color: tokens.red,          bg: alpha(tokens.red, 0.12) },
+    [ClassAttendanceStatus.ALL_PRESENT]:     { label: 'Present',        color: tokens.green,        bg: alpha(tokens.green, 0.12) },
+    [ClassAttendanceStatus.TEACHER_PRESENT]: { label: 'Teacher only',   color: tokens.amber,        bg: alpha(tokens.amber, 0.12) },
+    [ClassAttendanceStatus.STUDENT_PRESENT]: { label: 'Student only',   color: tokens.cyan,         bg: alpha(tokens.cyan, 0.12) },
+    [ClassAttendanceStatus.PENDING]:         { label: 'Pending',        color: tokens.textSecondary,bg: alpha(tokens.text, 0.08) },
+    [ClassAttendanceStatus.ABSENT]:          { label: 'Absent',         color: tokens.red,          bg: alpha(tokens.red, 0.12) },
 }
 
 const FALLBACK_STATUS = { label: 'Unknown', color: tokens.textDisabled, bg: alpha(tokens.text, 0.06) }
 
 function StatusBadge({ status }: { status: string }) {
-    const cfg = STATUS_CONFIG[status] ?? FALLBACK_STATUS
+    const key = normalizeStatus(status)
+    const cfg = STATUS_CONFIG[key] ?? FALLBACK_STATUS
     return (
         <Chip
             label={cfg.label}
@@ -91,7 +102,8 @@ function StatusBadge({ status }: { status: string }) {
 
 // ── Person cell ───────────────────────────────────────────────────────────────
 
-function PersonCell({ name }: { name: string }) {
+function PersonCell({ name }: { name: string | null | undefined }) {
+    if (!name) return <Typography sx={{ fontSize: '0.8125rem', color: tokens.textDisabled }}>—</Typography>
     return (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
             <Avatar sx={{ width: 24, height: 24, fontSize: '0.625rem', fontWeight: 600, bgcolor: stringToColor(name), flexShrink: 0 }}>
@@ -170,17 +182,19 @@ function RowSkeleton() {
 
 function TodaySessionsSection() {
     const navigate = useNavigate()
-    const today = new Date().toLocaleDateString('en-IN', {
+    const today = new Intl.DateTimeFormat('en-CA', {
         timeZone: 'Asia/Kolkata',
         year: 'numeric',
         month: '2-digit',
-        day: '2-digit'
-    }).split('/').reverse().join('-');
+        day: '2-digit',
+    }).format(new Date())
 
-    const { data: rawSessions = [], isLoading } = useQuery({
-        queryKey: ['classes-attendance', today],
-        queryFn: () => getClassesAttendance(today),
+    const { data: attendanceData, isLoading, isError, error, refetch } = useQuery({
+        queryKey: ['classes-attendance-v2', today],
+        queryFn: () => getAttendanceRecords(today),
     })
+
+    const rawSessions = attendanceData?.classes ?? []
 
     const sessions = [...rawSessions]
         .sort((a, b) => b.startTime.localeCompare(a.startTime))
@@ -226,9 +240,48 @@ function TodaySessionsSection() {
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                        {isLoading
-                            ? Array.from({ length: 5 }, (_, i) => <RowSkeleton key={i} />)
-                            : sessions.map((s: ClassAttendance) => (
+                        {isLoading ? (
+                            Array.from({ length: 5 }, (_, i) => <RowSkeleton key={i} />)
+                        ) : isError ? (
+                            <TableRow>
+                                <TableCell colSpan={5} sx={{ textAlign: 'center', py: 4, border: 0 }}>
+                                    <Box sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                                        <ErrorOutlineOutlinedIcon sx={{ color: tokens.red, fontSize: 24 }} />
+                                        <Typography sx={{ color: tokens.red, fontSize: '0.8125rem', fontWeight: 500 }}>
+                                            Failed to load today's sessions
+                                        </Typography>
+                                        <Typography sx={{ color: tokens.textSecondary, fontSize: '0.71875rem' }}>
+                                            {error instanceof Error ? error.message : 'An error occurred'}
+                                        </Typography>
+                                        <Box
+                                            component="button"
+                                            onClick={() => refetch()}
+                                            sx={{
+                                                mt: 1, px: '10px', py: '4px', borderRadius: '6px',
+                                                display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                                fontSize: '0.75rem', fontWeight: 500,
+                                                bgcolor: tokens.bgElev2, color: tokens.text,
+                                                border: `1px solid ${tokens.divider}`, cursor: 'pointer',
+                                                transition: 'border-color 0.15s, background 0.15s',
+                                                '&:hover': { borderColor: tokens.border, bgcolor: alpha(tokens.text, 0.06) },
+                                            }}
+                                        >
+                                            <RefreshOutlinedIcon sx={{ fontSize: 13 }} />
+                                            Retry
+                                        </Box>
+                                    </Box>
+                                </TableCell>
+                            </TableRow>
+                        ) : sessions.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={5} sx={{ textAlign: 'center', py: 4, border: 0 }}>
+                                    <Typography sx={{ color: tokens.textDisabled, fontSize: '0.875rem' }}>
+                                        No sessions scheduled for today.
+                                    </Typography>
+                                </TableCell>
+                            </TableRow>
+                        ) : (
+                            sessions.map((s: AttendanceClassRecord) => (
                                 <TableRow
                                     key={s.classId}
                                     sx={{
@@ -243,24 +296,20 @@ function TodaySessionsSection() {
                                         </Typography>
                                     </TableCell>
                                     <TableCell sx={{ py: '11px' }}>
-                                        {s.teacherName
-                                            ? <PersonCell name={s.teacherName} />
-                                            : <Typography sx={{ fontSize: '0.8125rem', color: tokens.textDisabled }}>—</Typography>}
+                                        <PersonCell name={s.teacher?.name} />
                                     </TableCell>
                                     <TableCell sx={{ py: '11px' }}>
-                                        {s.studentName
-                                            ? <PersonCell name={s.studentName} />
-                                            : <Typography sx={{ fontSize: '0.8125rem', color: tokens.textDisabled }}>—</Typography>}
+                                        <PersonCell name={s.student?.name} />
                                     </TableCell>
                                     <TableCell sx={{ py: '11px' }}>
-                                        <Typography sx={{ fontSize: '0.8125rem', color: s.className ? tokens.text : tokens.textDisabled }}>{s.className ?? '—'}</Typography>
+                                        <Typography sx={{ fontSize: '0.8125rem', color: s.courseTitle ? tokens.text : tokens.textDisabled }}>{s.courseTitle ?? '—'}</Typography>
                                     </TableCell>
                                     <TableCell sx={{ py: '11px' }}>
                                         <StatusBadge status={s.attendanceStatus} />
                                     </TableCell>
                                 </TableRow>
                             ))
-                        }
+                        )}
                     </TableBody>
                 </Table>
             </Box>
